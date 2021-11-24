@@ -1,0 +1,77 @@
+1. DNS for OCP
+   ip: 172.20.2.231
+   for DNS: 127.0.0.1 (?)
+   ensure that Ignore automatically Obtained DNS parameters is ticked
+    
+   * /var/named/* 에 새로 생성한 zone 파일의 소유권 변경: chwon :named *.zone, *.rev
+   
+
+2. GW for OCP Network 
+  - external ip: 172.20.2.235
+  - internal ip: 192.168.1.1
+  - ensure that Never use this network for default route is ticked
+
+  $ nmcli con add type ethernet con-name ens192 ifname ens192
+  $ nmcli con mod ens192 ipv4.addresses 192.168.1.1 \
+		ipv4.gateway 192.168.1.1 \
+		ipv4.dns 172.20.2.231 \
+		ipv4.metho manual connection.autoconnect yes
+  $ firewall-cmd --get-active-zone
+  $ firewall-cmd --get-zones
+  $ firewall-cmd --get-default-zone
+  $ firewall-cmd --set-default-zone external
+  $ nmcli con modify ens192 connection.zone external
+  $ nmcli con mod ens224 connection.zone internal
+  $ firewall-cmd --zone=external --add-masquerade --permanent
+  $ firewall-cmd --zone=internal --add-masquerade --permanent
+  $ firewall-cmd --reload
+  $ cat /proc/sys/net/ipv4/ip_forward
+  
+  # priavate (192.168.1.0/24)과 외부와 통신하기 위해서
+  $ firewall-cmd --direct --add-rule ipv4 filter FORWARD 0 -i ens224 -o ens192 -j ACCEPT # internal --> external
+  $ firewall-cmd --direct --add-rule ipv4 filter FORWARD 0 -i ens192 -o ens224 -m state --state RELATED,ESTABLISHED -j ACCEPT
+  
+
+3. DHCP in OCP Network
+  - ip : 192.168.1.2
+  - gateway: 192.168.1.1
+  - hostname: dhcp-ocp.saltware.lan
+  - dns: 172.20.2.231
+  
+시스템 상에 한 개 이상의 네트워크 인터페이스가 연결되어 있는 경우, 오직 한 인터페이스 상에서만 DHCP 서버가 시작하도록 설정하는 것이 가능합니다. 
+/etc/sysconfig/dhcpd 파일에서 해당 인터페이스의 이름을 DHCPDARGS 목록에 추가
+-------------------- dhcpd.conf -----
+authoritve;
+ddns-update-style interim;
+allow booting;
+allow bootp;
+allow unknown-clients;
+ignore client-updates;
+default-lease-time 14400;
+max-lease-time 14400;
+
+
+DHCPDARGS=ens192
+subnet 192.168.1.0 netmask 255.255.255.0 {
+ option routers                  192.168.1.1; # lan
+ option subnet-mask              255.255.255.0;
+ option domain-name              "saltware.lan";
+ option domain-name-servers       172.20.2.231;
+ range 192.168.1.10 192.168.1.200;
+}
+------------------------------------
+4. downlaod  ocp client & installer and setup
+
+
+4. Add the vCenter root CA certificates to your system trust
+wget https://172.20.2.240/certs/download.zip --no-check-certificate
+unzip download.zip
+cp certs/lin/* /etc/pki/ca-trust/source/anchors
+update-ca-trust extract
+
+
+5. 
+ - generate ssh key and start agent
+ $ ssh-keygen
+ $ eval "$(ssh-agent)"
+ # add ssh private key to the ssh-agent

@@ -1,0 +1,40 @@
+$TTL    604800
+@       IN      SOA     @ admin.steve.lab. (
+                  1     ; Serial
+             604800     ; Refresh
+              86400     ; Retry
+            2419200     ; Expire
+             604800     ; Minimum
+)
+        IN      NS      @
+@       IN      A       172.20.2.231
+
+; Temp Bootstrap Node
+bootstrap.mycluster.steve.lab.        IN      A      192.168.1.200
+
+; Control Plane Nodes
+cp0.mycluster.steve.lab.         IN      A      192.168.1.100
+cp1.mycluster.steve.lab.         IN      A      192.168.1.101
+cp2.mycluster.steve.lab.         IN      A      192.168.1.102
+
+; Worker Nodes
+w0.mycluster.steve.lab.        IN      A      192.168.1.120
+w1.mycluster.steve.lab.        IN      A      192.168.1.121
+
+; OpenShift Internal - Load balancer  -- router 뒤에 별도의 haproxy 서버 설치 (port forwarding ?)
+api.mycluster.steve.lab.        IN    A    	192.168.1.201
+api-int.mycluster.steve.lab.    IN    A    	192.168.1.201
+*.apps.mycluster.steve.lab.     IN    A    192.168.1.201
+
+; ETCD Cluster
+etcd-0.mycluster.steve.lab.    IN    A     192.168.1.100
+etcd-1.mycluster.steve.lab.    IN    A     192.168.1.101
+etcd-2.mycluster.steve.lab.    IN    A     192.168.1.102
+
+; OpenShift Internal SRV records (cluster name = mycluster)
+_etcd-server-ssl._tcp.mycluster.steve.lab.    86400     IN    SRV     0    10    2380    etcd-0.mycluster
+_etcd-server-ssl._tcp.mycluster.steve.lab.    86400     IN    SRV     0    10    2380    etcd-1.mycluster
+_etcd-server-ssl._tcp.mycluster.steve.lab.    86400     IN    SRV     0    10    2380    etcd-2.mycluster
+
+oauth-openshift.apps.mycluster.steve.lab.     IN     A     192.168.1.201
+console-openshift-console.apps.mycluster.steve.lab.     IN     A     192.168.1.201

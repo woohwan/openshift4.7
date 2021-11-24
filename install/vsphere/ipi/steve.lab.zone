@@ -1,0 +1,15 @@
+$TTL    604800
+@       IN      SOA     @ admin.steve.lab. (
+                  1     ; Serial
+             604800     ; Refresh
+              86400     ; Retry
+            2419200     ; Expire
+             604800     ; Minimum
+)
+        IN      NS      @
+@       IN      A       172.20.2.231
+
+; OpenShift Internal - Load balancer  -- router 뒤에 별도의 haproxy 서버 설치 (port forwarding ?)
+api.mycluster.steve.lab.        IN    A    	192.168.1.201
+api-int.mycluster.steve.lab.    IN    A    	192.168.1.201
+*.apps.mycluster.steve.lab.     IN    A    192.168.1.201

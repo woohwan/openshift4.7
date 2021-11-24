@@ -1,0 +1,27 @@
+$TTL    604800
+@       IN      SOA     @ admin.steve.lab. (
+                  1     ; Serial
+             604800     ; Refresh
+              86400     ; Retry
+            2419200     ; Expire
+             604800     ; Minimum
+)
+        IN      NS      @
+@       IN      A       172.20.2.231
+
+
+; Load Balancer
+201		IN		PTR		api.mycluster.steve.lab.
+201		IN		PTR		api-int.mycluster.steve.lab.
+
+; Bootstrap
+200		IN		PTR		bootstrap.mycluster.steve.lab.
+
+; Control Plane
+100		IN		PTR		cp0.mycluster.steve.lab.
+101		IN		PTR		cp1.mycluster.steve.lab.
+102		IN		PTR		cp2.mycluster.steve.lab.
+
+; Work node
+120		IN		PTR		w0.mycluster.steve.lab.
+121		IN		PTR		w1.mycluster.steve.lab.
