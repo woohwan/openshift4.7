@@ -1,0 +1,24 @@
+// 아래 내용 추가. multi domain에 대해 동일한 zone 파일 설정
+zone "steve.lab" IN {
+        type master;
+        file "steve.lab.zone";
+        allow-update { none; };
+};
+
+zone "saltware.lab" IN {
+        type master;
+        file "steve.lab.zone";
+        allow-update { none; };
+};
+
+zone "1.168.192.in-addr.arpa" IN {
+        type master;
+        file "192.168.1.rev";
+        allow-update { none; };
+};
+
+zone "2.20.172.in-addr.arpa" IN {
+        type master;
+        file "172.20.2.rev";
+        allow-update { none; };
+};

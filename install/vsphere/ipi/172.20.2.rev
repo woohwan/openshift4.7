@@ -9,4 +9,5 @@ $TTL    604800
         IN      NS      @
 @       IN      A       172.20.2.231
 
-231		IN		PTR		steve.lab.
+231	IN	PTR	steve.lab.
+240     IN      PTR     vcsa.saltware.lab.        

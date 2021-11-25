@@ -9,7 +9,9 @@ $TTL    604800
         IN      NS      @
 @       IN      A       172.20.2.231
 
+vcsa    IN      A       172.20.2.240
+
 ; OpenShift Internal - Load balancer  -- router 뒤에 별도의 haproxy 서버 설치 (port forwarding ?)
 api.mycluster.steve.lab.        IN    A    	192.168.1.201
 api-int.mycluster.steve.lab.    IN    A    	192.168.1.201
-*.apps.mycluster.steve.lab.     IN    A    192.168.1.201
+*.apps.mycluster.steve.lab.     IN    A    192.168.1.202
