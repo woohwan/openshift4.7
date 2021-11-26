@@ -69,10 +69,87 @@ NFS: 172.20.220.2.236
   $ firewall-cmd --reload
   $ cat /proc/sys/net/ipv4/ip_forward
   
-  # priavate (192.168.1.0/24)과 외부와 통신하기 위해서
+  # priavate (192.168.1.0/24)과 외부와 통신하기 위해서 (참고용: 적용하지 않아도 작동함)
   $ firewall-cmd --direct --add-rule ipv4 filter FORWARD 0 -i ens224 -o ens192 -j ACCEPT # internal --> external
   $ firewall-cmd --direct --add-rule ipv4 filter FORWARD 0 -i ens192 -o ens224 -m state --state RELATED,ESTABLISHED -j ACCEPT
-  
+
+  ** external에서 internal의 haproxy로 연결하기 위해서는 virtual ip  (혹은 secondary ip) 및 port-forwarding이 필요
+    --> haproxy를 위한 가상 vip  
+      172.20.2.220 (API VIP) --> 192.168.1.201 
+      172.20.2.221 (Ingress VIP) --> 192.168.1.202
+
+  2.1 Interace에 multi IP를 구성하는 방법 3가지
+    2.1.1 Interface에 직접 Secondary IP 추가
+    $ /etc/sysconfig/network-scripts/ifcfg-ens192 파일 수정
+    IPADDR=172.20.2.235    --> IPADDR0=172.20.2.220
+                               IPADDR1=172.20.2.221
+    $ifdown ens192 && ifup ens192
+    $ ip a show ens192
+
+    2.2.2 virtual ip 추가
+    - ifcfg-ens192 파일을 복사 및 수정
+    $ cd /etc/sysconfig/network-scripts/
+    $ cp ifcfg-ens192 ifcfg-ens192:1
+    $ cat ifcfg-ens192:1
+    TYPE=Ethernet
+    DEVICE=ens192:1
+    ONBOOT=yes
+    NM_CONTROLLED=no
+    BOOTPROTO=none
+    IPADDR=172.20.2.220
+    PREFIX=22
+    GATEWAY=172.20.0.1
+    DNS1=172.20.2.231
+    PEERDNS=no
+    ZONE=external
+
+    [root@router-ocp network-scripts]# cat ifcfg-ens192:2
+    TYPE=Ethernet
+    DEVICE=ens192:2
+    ONBOOT=yes
+    NM_CONTROLLED=no
+    BOOTPROTO=none
+    IPADDR=172.20.2.221
+    PREFIX=22
+    GATEWAY=172.20.0.1
+    DNS1=172.20.2.231
+    PEERDNS=no
+    ZONE=external
+
+    $ ifdown ens192 && ifup ens192
+    $ ip a show ens192
+
+    2.2.3 nmcli를 이용한 secondary ip 추가
+    $ nmcli con mod ens192 +ipv4.addresses "172.20.2.220/22"
+    $ nmcli con mod ens192 +ipv4.addresses "172.20.2.221/22"
+    $ nmcli con down ens192 && nmcli con up ens192
+    $ ip a show ens192
+
+  2.2 port-forwarding  추가 ( 참고: https://m.blog.naver.com/PostView.naver?isHttpsRedirect=true&blogId=alice_k106&logNo=221305928714)
+
+    2.2.1 API VIP (172.20.2.220) 에 대한 nat 테이블에 PREROUTING 추가
+      $ iptables -t nat -A PREROUTING -d 172.20.2.220 -p tcp --dport 80 -j DNAT --to-destination 192.168.1.201:80
+      설명)
+      · - A PREROUTING: PREROUTING 체인에 규칙을 추가한다.
+      · - t nat: nat 테이블에 규칙을 추가한다.
+      · -j DANT: 사용할 기능으로 DNAT, SNAT, MAQUERADE 설정. 여기서는 외부에서 들어오는 패킷의 destination 주소를 변경하므로 DNAT
+      · -p tcp: tcp 프로토콜을 사용한다.
+      · --dport: 들어오는 패킷의 목적지 포트를 명시한다.
+      · --to-destination: 최종적으로 DANT에 의해 설정될 도착지를 설정한다.
+
+      $ iptables -nL PREROUTING -t nat
+      Chain PREROUTING (policy ACCEPT)
+      target     prot opt source               destination
+      DNAT       tcp  --  0.0.0.0/0            172.20.2.220         tcp dpt:80 to:192.168.1.201
+
+    2.2.2 API VIP (172.20.2.220)  nat 테이블에 POSTROUTING 추가
+    $ iptables -t nat -A POSTROUTING -p tcp -d 192.168.1.201 --dport 80 -j SNAT --to-source 172.20.2.220
+    $ iptables -nL POSTROUTING -t nat
+    Chain POSTROUTING (policy ACCEPT)
+    target     prot opt source               destination
+    SNAT       tcp  --  0.0.0.0/0            192.168.1.201        tcp dpt:80 to:172.20.2.220
+
+   - Ingress VIP (172.20.2.221) 에 대해서도 동일하게 수행
 
 3. DHCP in OCP Network
   - ip : 192.168.1.2
