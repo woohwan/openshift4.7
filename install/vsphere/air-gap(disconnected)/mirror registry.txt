@@ -1,0 +1,13 @@
+
+10. Image download
+  10.1 RHCOS initramfs download
+    wget https://mirror.openshift.com/pub/openshift-v4/dependencies/rhcos/${OCP_VERSION}/${OCP_RELEASE}/rhcos-${OCP_RELEASE}-x86_64-live-initramfs.x86_64.img \
+    -P ${REGISTRY_BASE}/downloads/images/
+  
+  10.2 RHCOS kernel download
+    wget https://mirror.openshift.com/pub/openshift-v4/dependencies/rhcos/${OCP_VERSION}/${OCP_RELEASE}/rhcos-${OCP_RELEASE}-x86_64-live-kernel-x86_64 \
+    -P ${REGISTRY_BASE}/downloads/images/
+  
+  10.3 RHCOS raw file download
+    wget https://mirror.openshift.com/pub/openshift-v4/dependencies/rhcos/${OCP_VERSION}/${OCP_RELEASE}/rhcos-${OCP_RELEASE}-x86_64-metal.x86_64.raw.gz \
+    -P ${REGISTRY_BASE}/downloads/images/

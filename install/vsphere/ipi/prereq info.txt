@@ -202,6 +202,116 @@ update-ca-trust extract
 INI 설치 시 기본적으로 Image Registry는 제거된 상태로 설치가 완성된다. 
 ** 주의사항: vSphere에 INI 설치 시  내장 pvc가 default thin Storage Class를 사용하는 이는 RWX 모드를 지원하지 않는다.
 따라서, Kubernetes NFS Subdir External Provisioner  ( https://github.com/woohwan/nfs-subdir-external-provisioner.git )를 먼저 설치/테스트 테스티한다.
+  
+  8.1 project 생성 ==> 모든 수행은 이 project 내에서....
+  $ oc new-proejct nfs-provisioner
+
+  8.2 권한 생성
+  # Set the subject of the RBAC objects to the current namespace where the provisioner is being deployed
+  $ NAMESPACE=`oc project -q`
+  $ sed -i'' "s/namespace:.*/namespace: $NAMESPACE/g" ./deploy/rbac.yaml ./deploy/deployment.yaml
+  $ oc create -f deploy/rbac.yaml
+  $ oc adm policy add-scc-to-user hostmount-anyuid system:serviceaccount:$NAMESPACE:nfs-client-provisioner
+
+  8.3 NFS subdir external provisioner 구성 및 수행
+    8.3.1 ./deploy/deployment.yaml 을 구성한 NFS 정보에 맞게 수정
+  -------------------------------------------
+  apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nfs-client-provisioner
+  labels:
+    app: nfs-client-provisioner
+  # replace with namespace where provisioner is deployed
+  namespace: nfs-provisioner
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: nfs-client-provisioner
+  template:
+    metadata:
+      labels:
+        app: nfs-client-provisioner
+    spec:
+      serviceAccountName: nfs-client-provisioner
+      containers:
+        - name: nfs-client-provisioner
+          image: k8s.gcr.io/sig-storage/nfs-subdir-external-provisioner:v4.0.2
+          volumeMounts:
+            - name: nfs-client-root
+              mountPath: /persistentvolumes
+          env:
+            - name: PROVISIONER_NAME
+              value: k8s-sigs.io/nfs-subdir-external-provisioner
+            - name: NFS_SERVER
+              value: 172.20.2.236
+            - name: NFS_PATH
+              value: /shares/registry
+      volumes:
+        - name: nfs-client-root
+          nfs:
+            server: 172.20.2.236
+            path: /shares/registry
+--------------------------------------------------------------------------
+    8.3.2 
+    $ oc create -f deploy/deployment.yaml
+    $ oc get pods
+    NAME                                     READY   STATUS    RESTARTS   AGE
+    nfs-client-provisioner-6c7f447cd-jmg28   1/1     Running   0          10s
+
+  8.4 Storage class 수행 및 테스트
+    $ oc create -f deploy/class.yaml
+    $ kubectl create -f deploy/test-claim.yaml -f deploy/test-pod.yaml
+
+  8.5 Local Image Registry 용  PVC 생성
+    $ vi image-registry-pvc.yaml
+    --------------------------------------------
+    kind: PersistentVolumeClaim
+    apiVersion: v1
+    metadata:
+      name: image-registry-pvc
+      annotations:
+        nfs.io/storage-path: "/shares/registry" # not required, depending on whether this annotation was shown in the storage class description
+    spec:
+      storageClassName: managed-nfs-storage
+      accessModes:
+        - ReadWriteMany
+      resources:
+        requests:
+          storage: 100Gi
+    --------------------------------------------------------
+    $ oc get pvc
+    NAME                 STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS          AGE
+    image-registry-pvc   Bound    pvc-6fb2cd10-c7f8-4cd1-9950-3e96c13c382e   100Gi      RWX            managed-nfs-storage   6s
+
+  8.6 image registry config 변경
+    $ oc edit configs.imageregistry.operator.openshift.io -o yaml
+    managementState: Removed --> Managed
+    storage: {}
+
+    storage:
+      pvc:
+        claim: image-registry-pvc
+
+  8.7 mage-registry cluster-operator의 상태를 확인
+    $ watch oc get co image-registry
+    - Available이 True로 변경될때까지 기다립니다.
+    pod 정상 작동 확인
+    $ oc get po -n openshift-image-registry
+
+
+
+
+
+
+
+
+
+
+
 nfs-storage-pvc를  생성하고,  Image Registry operator config 내용 중,
 managementState: Removed --> Managed, 
 
