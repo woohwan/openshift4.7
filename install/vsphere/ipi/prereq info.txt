@@ -71,19 +71,21 @@ ingress vip: 172.20.2.221 --> 192.168.1.202
   $ cat /proc/sys/net/ipv4/ip_forward
   
   # priavate (192.168.1.0/24)과 외부와 통신하기 위해서 (참고용: 적용하지 않아도 작동함)
+
+  아래 것은 interface를 통한 port-frowarding으로 작동하지 않음. (검증 필요)
   $ firewall-cmd --direct --add-rule ipv4 filter FORWARD 0 -i ens224 -o ens192 -j ACCEPT # internal --> external
-  $ firewall-cmd --direct --add-rule ipv4 filter FORWARD 0 -i ens192 -o ens224 -m state --state RELATED,ESTABLISHED -j ACCEPT
+  $ firewall-cmd --direct --add-rule ipv4 filter FORWARD 0 -i ens192 -o ens224 -m state --state NEW,RELATED,ESTABLISHED -j ACCEPT
 
   ** external에서 internal의 haproxy로 연결하기 위해서는 virtual ip  (혹은 secondary ip) 및 port-forwarding이 필요
     --> haproxy를 위한 가상 vip  
-      172.20.2.220 (API VIP) --> 192.168.1.201 
-      172.20.2.221 (Ingress VIP) --> 192.168.1.202
+      172.20.2.221 (API VIP) --> 192.168.1.201 
+      172.20.2.222 (Ingress VIP) --> 192.168.1.202
 
   2.1 Interace에 multi IP를 구성하는 방법 3가지
     2.1.1 Interface에 직접 Secondary IP 추가
     $ /etc/sysconfig/network-scripts/ifcfg-ens192 파일 수정
-    IPADDR=172.20.2.235    --> IPADDR0=172.20.2.220
-                               IPADDR1=172.20.2.221
+    IPADDR=172.20.2.235    --> IPADDR0=172.20.2.221
+                               IPADDR1=172.20.2.222
     $ifdown ens192 && ifup ens192
     $ ip a show ens192
 
@@ -97,7 +99,7 @@ ingress vip: 172.20.2.221 --> 192.168.1.202
     ONBOOT=yes
     NM_CONTROLLED=no
     BOOTPROTO=none
-    IPADDR=172.20.2.220
+    IPADDR=172.20.2.221
     PREFIX=22
     GATEWAY=172.20.0.1
     DNS1=172.20.2.231
@@ -110,7 +112,7 @@ ingress vip: 172.20.2.221 --> 192.168.1.202
     ONBOOT=yes
     NM_CONTROLLED=no
     BOOTPROTO=none
-    IPADDR=172.20.2.221
+    IPADDR=172.20.2.222
     PREFIX=22
     GATEWAY=172.20.0.1
     DNS1=172.20.2.231
@@ -121,13 +123,13 @@ ingress vip: 172.20.2.221 --> 192.168.1.202
     $ ip a show ens192
 
     2.2.3 nmcli를 이용한 secondary ip 추가
-    $ nmcli con mod ens192 +ipv4.addresses "172.20.2.220/22"
     $ nmcli con mod ens192 +ipv4.addresses "172.20.2.221/22"
+    $ nmcli con mod ens192 +ipv4.addresses "172.20.2.222/22"
     $ nmcli con down ens192 && nmcli con up ens192
     $ ip a show ens192
 
   2.2 port-forwarding  추가 ( 참고: https://m.blog.naver.com/PostView.naver?isHttpsRedirect=true&blogId=alice_k106&logNo=221305928714)
-
+    ** PREROUTING만 설정하면 됨.
     2.2.1 API VIP (172.20.2.220) 에 대한 nat 테이블에 PREROUTING 추가
       $ iptables -t nat -A PREROUTING -d 172.20.2.220 -p tcp --dport 80 -j DNAT --to-destination 192.168.1.201:80
       설명)
@@ -143,14 +145,68 @@ ingress vip: 172.20.2.221 --> 192.168.1.202
       target     prot opt source               destination
       DNAT       tcp  --  0.0.0.0/0            172.20.2.220         tcp dpt:80 to:192.168.1.201
 
-    2.2.2 API VIP (172.20.2.220)  nat 테이블에 POSTROUTING 추가
-    $ iptables -t nat -A POSTROUTING -p tcp -d 192.168.1.201 --dport 80 -j SNAT --to-source 172.20.2.220
-    $ iptables -nL POSTROUTING -t nat
-    Chain POSTROUTING (policy ACCEPT)
-    target     prot opt source               destination
-    SNAT       tcp  --  0.0.0.0/0            192.168.1.201        tcp dpt:80 to:172.20.2.220
+     - Ingress VIP (172.20.2.221) 에 대해서도 동일하게 수행 
+    $ iptables -t nat -A PREROUTING -d 172.20.2.118 -p tcp --dport 443 -j DNAT --to-destination 192.168.1.202:443
 
-   - Ingress VIP (172.20.2.221) 에 대해서도 동일하게 수행
+    =================================== port forwarding in router======================================================
+    $ firewall-cmd --zone=external --list-all
+    external (active)
+    target: default
+    icmp-block-inversion: no
+    interfaces: ens192
+    sources:
+    services: http https ssh
+    ports:
+    protocols:
+    forward: no
+    masquerade: yes
+    forward-ports:
+    source-ports:
+    icmp-blocks:
+    rich rules:
+
+    $ firewall-cmd --zone=internal --list-all
+      internal (active)
+      target: default
+      icmp-block-inversion: no
+      interfaces: ens224
+      sources:
+      services: cockpit dhcpv6-client mdns samba-client ssh
+      ports:
+      protocols:
+      forward: no
+      masquerade: yes
+      forward-ports:
+      source-ports:
+      icmp-blocks:
+      rich rules:
+    ------------------------------------------------------------------------------------
+    ** netfilter table
+    $ iptables -nL
+    Chain INPUT (policy ACCEPT)
+    target     prot opt source               destination
+
+    Chain FORWARD (policy ACCEPT)
+    target     prot opt source               destination
+
+    Chain OUTPUT (policy ACCEPT)
+    target     prot opt source
+
+    $ iptables -nL -t nat
+    Chain PREROUTING (policy ACCEPT)
+    target     prot opt source               destination
+    DNAT       tcp  --  0.0.0.0/0            172.20.2.118         tcp dpt:443 to:192.168.1.202:443
+
+
+    ============================
+
+
+
+
+
+
+
+
 
 3. DHCP in OCP Network
   - ip : 192.168.1.2
