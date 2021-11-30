@@ -147,8 +147,11 @@ ingress vip: 172.20.2.221 --> 192.168.1.202
 
      - Ingress VIP (172.20.2.221) 에 대해서도 동일하게 수행 
     $ iptables -t nat -A PREROUTING -d 172.20.2.118 -p tcp --dport 443 -j DNAT --to-destination 192.168.1.202:443
+    --> firewall-cmd --reload 하면 설정 값이 사라짐.
+    $ firewall-cmd  --permanent --direct --add-rule ipv4 nat PREROUTING 0 -d 172.20.2.118 -p tcp --dport 443 -j DNAT --to-destination 192.168.1.202:443
+    $ firewall-cmd --reload
 
-    =================================== port forwarding in router======================================================
+    =================================== port forwarding in router - 2021.11.30 ======================================================
     $ firewall-cmd --zone=external --list-all
     external (active)
     target: default
@@ -323,6 +326,7 @@ spec:
     $ kubectl create -f deploy/test-claim.yaml -f deploy/test-pod.yaml
 
   8.5 Local Image Registry 용  PVC 생성
+    $ oc proejct openshift-image-registry (namespace를 openshift-image-registry로 변경)
     $ vi image-registry-pvc.yaml
     --------------------------------------------
     kind: PersistentVolumeClaim
@@ -357,24 +361,5 @@ spec:
     - Available이 True로 변경될때까지 기다립니다.
     pod 정상 작동 확인
     $ oc get po -n openshift-image-registry
-
-
-
-
-
-
-
-
-
-
-
-nfs-storage-pvc를  생성하고,  Image Registry operator config 내용 중,
-managementState: Removed --> Managed, 
-
-storage: {} -->  storage:
-                   pvc:
-                    claim: nfs-storage-pvc
-로 변경
-
 
 
