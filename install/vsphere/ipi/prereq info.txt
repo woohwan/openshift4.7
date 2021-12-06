@@ -151,6 +151,8 @@ ingress vip: 172.20.2.221 --> 192.168.1.202
     $ firewall-cmd  --permanent --direct --add-rule ipv4 nat PREROUTING 0 -d 172.20.2.118 -p tcp --dport 443 -j DNAT --to-destination 192.168.1.202:443
     $ firewall-cmd --reload
 
+    * 잘못 입력해서 --reload가 적용되지 않을 경우, /etc/firewalld/direct.xml 파일 수정
+
     =================================== port forwarding in router - 2021.11.30 ======================================================
     $ firewall-cmd --zone=external --list-all
     external (active)
@@ -254,6 +256,12 @@ update-ca-trust extract
  $ ssh-keygen
  $ eval "$(ssh-agent)"
  # add ssh private key to the ssh-agent
+
+
+ 6. client 설치
+  - enable tab completion
+  $ oc completion bash > oc_bash_completion
+  $ sudo cp oc_bash_completion /etc/bash_completion.d/
 
 
 
