@@ -1,0 +1,183 @@
+$ mkdir -p /opt/registry
+$ export REGISTRY_BASE="/opt/registry"
+
+$ mkdir -p ${REGISTRY_BASE}/{auth,certs,data,downloads}
+$ mkdir -p ${REGISTRY_BASE}/downloads/{images,tools,secrets}
+
+$ vi /etc/hosts
+$ 127.0.0.1      registry
+
+$ dnf install -y jq openssl podman p7zip httpd-tools curl wget screen nmap telnet ftp tftp openldap-clients tcpdump wireshark xorg-x11-xauth tmux net-tools nfs-utils sg3_utils bind-utils rlwrap uucp
+
+$ cd ${REGISTRY_BASE}/certs/
+$ cat >csr_answer.txt << EOF
+[req]
+default_bits = 4096
+prompt = no
+default_md = sha256
+distinguished_name = dn
+[ dn ]
+C=US
+ST=New York
+L=New York
+O=MyOrg
+OU=MyOU
+emailAddress=me@working.me
+CN = registry
+EOF
+
+$ openssl req -newkey rsa:4096 -nodes -sha256 -keyout domain.key -x509 -days 365 -out domain.crt -config <( cat csr_answer.txt ) -addext "subjectAltName = DNS:registry"
+
+$ ls -al
+total 20
+drwxr-xr-x. 2 root root 4096 Jan 8 13:49 .
+drwxr-xr-x. 7 root root 4096 Jan 8 09:57 ..
+-rw-r — r — . 1 root root 175 Jan 8 13:48 csr_answer.txt
+-rw-r — r — . 1 root root 1972 Jan 8 13:49 domain.crt
+-rw-r — r — . 1 root root 3272 Jan 8 13:49 domain.key
+
+$ cp ${REGISTRY_BASE}/certs/domain.crt /etc/pki/ca-trust/source/anchors/
+$ update-ca-trust extract
+
+$ htpasswd -bBc ${REGISTRY_BASE}/auth/htpasswd myuser mypassword
+
+$ export FIREWALLD_DEFAULT_ZONE=`firewall-cmd --get-default-zone`
+$ echo ${FIREWALLD_DEFAULT_ZONE}
+public
+
+$ firewall-cmd --add-port=5000/tcp --zone=${FIREWALLD_DEFAULT_ZONE} --permanent
+$ firewall-cmd --reload
+
+$ echo 'podman run --name my-registry --rm -d -p 5000:5000 \
+-v ${REGISTRY_BASE}/data:/var/lib/registry:z \
+-v ${REGISTRY_BASE}/auth:/auth:z -e "REGISTRY_AUTH=htpasswd" \
+-e "REGISTRY_AUTH_HTPASSWD_REALM=Registry" \
+-e "REGISTRY_HTTP_SECRET=ALongRandomSecretForRegistry" \
+-e REGISTRY_AUTH_HTPASSWD_PATH=/auth/htpasswd \
+-v ${REGISTRY_BASE}/certs:/certs:z \
+-e REGISTRY_HTTP_TLS_CERTIFICATE=/certs/domain.crt \
+-e REGISTRY_HTTP_TLS_KEY=/certs/domain.key \
+docker.io/library/registry:2' > ${REGISTRY_BASE}/downloads/tools/start_registry.sh
+
+
+$ cd ${REGISTRY_BASE}/downloads/tools/
+start_registry.sh 작성
+
+podman run --name my-registry --rm -d -p 5000:5000 \
+-v /opt/registry/data:/var/lib/registry:z \
+-v /opt/registry/auth:/auth:z -e "REGISTRY_AUTH=htpasswd" \
+-e "REGISTRY_AUTH_HTPASSWD_REALM=Registry" \
+-e "REGISTRY_HTTP_SECRET=ALongRandomSecretForRegistry" \
+-e "REGISTRY_AUTH_HTPASSWD_PATH=/auth/htpasswd" \
+-v /opt/registry/certs:/certs:z \
+-e "REGISTRY_HTTP_TLS_CERTIFICATE=/certs/domain.crt" \
+-e "REGISTRY_HTTP_TLS_KEY=/certs/domain.key" \
+docker.io/library/registry:2
+
+$ chmod a+x ${REGISTRY_BASE}/downloads/tools/start_registry.sh
+$ ${REGISTRY_BASE}/downloads/tools/start_registry.sh
+$ podman ps
+
+실행되지 않을 경우, 위 option에서 --rm을 제거하고 수행한 후 
+$ podman ps -a
+$ podman logs my-registry
+
+실행 확인
+$ curl -u myuser:mypassword -k https://registry:5000/v2/_catalog 
+{"repositories":[]}
+
+Repository 동기화
+
+$ export OCP_RELEASE=4.7.33
+$ export OCP_BASEURL=https://mirror.openshift.com/pub/openshift-v4/clients/ocp
+$ export RHCOS_BASEURL=https://mirror.openshift.com/pub/openshift-v4/dependencies/rhcos
+$ echo "export OCP_RELEASE=${OCP_RELEASE}" >> ${REGISTRY_BASE}/downloads/tools/env_ocp
+
+ $ wget ${OCP_BASEURL}/${OCP_RELEASE}/openshift-client-linux-${OCP_RELEASE}.tar.gz -P ${REGISTRY_BASE}/downloads/tools/
+ $ tar -xzf ${REGISTRY_BASE}/downloads/tools/openshift-client-linux-${OCP_RELEASE}.tar.gz -C ${REGISTRY_BASE}/downloads/tools/
+ $ ln -s ${REGISTRY_BASE}/downloads/tools/oc /usr/local/bin/oc
+ $ oc version
+
+ 해당 버전 ISOs download
+ $ export OCP_VERSION=4.7
+ $ echo "export OCP_RELEASE=${OCP_VERSION}" >> ${REGISTRY_BASE}/downloads/tools/env_ocp
+
+ $ wget https://mirror.openshift.com/pub/openshift-v4/dependencies/rhcos/${OCP_VERSION}/${OCP_RELEASE}/rhcos-${OCP_RELEASE}-x86_64-live-initramfs.x86_64.img -P ${REGISTRY_BASE}/
+downloads/images/
+ $ wget https://mirror.openshift.com/pub/openshift-v4/dependencies/rhcos/${OCP_VERSION}/${OCP_RELEASE}/rhcos-${OCP_RELEASE}-x86_64-live-kernel-x86_64 -P ${REGISTRY_BASE}/downloads/images/
+ $ wget https://mirror.openshift.com/pub/openshift-v4/dependencies/rhcos/${OCP_VERSION}/${OCP_RELEASE}/rhcos-${OCP_RELEASE}-x86_64-metal.x86_64.raw.gz -P ${REGISTRY_BASE}/downloads/images/
+
+ RedHat pull secret download
+ 생성 방법은 아래 두 가지이댜.
+ 1. https://cloud.redhat.com/openshift/ 에 로그인하여 pull secret를 copy하거나, 
+ 2. https://cloud.redhat.com/openshift/token 에서 OFFLINE ACCESS TOKEN을 다운로드 한다.
+ access token을 사전에 다운로드 해 두면 필요할 때 다시 로그인 없이 pull secret을 생성할 수 있다.
+
+ 방법 1을 사용하여 해당 디렉터리에 pull secret파일을 작성한다.
+ $ cd ${REGISTRY_BASE}/downloads/secrets
+
+ $ cat > pull-secret.json << EOF
+ (CTRL+V)
+ EOF
+
+ 방법2. 미리 api-token.txt에서 api access token 저장
+ $ OFFLINE_ACCESS_TOKEN=$(cat api-token.txt)
+ $ vi get-pullsecret.sh
+ -------------------------------------------------------------
+ export BEARER=$(curl \
+    --silent \
+    --data-urlencode "grant_type=refresh_token" \
+    --data-urlencode "client_id=cloud-services" \
+    --data-urlencode "refresh_token=${OFFLINE_ACCESS_TOKEN}" \
+    https://sso.redhat.com/auth/realms/redhat-external/protocol/openid-connect/token | \
+    jq -r .access_token)
+
+ curl -X POST https://api.openshift.com/api/accounts_mgmt/v1/access_token --header "Content-Type:application/json" --header "Authorization: Bearer $BEARER" > pull-secret.json
+ --------------------------------------------------------------------------------
+ $ chmod 755 get-pullsecret.sh
+ 
+ pullsecret validattion 검사 : clean format
+ $ cat pull-secret.json |jq
+
+ error 날 경우, token을 다시 가져와서 수행
+
+ registry credential을 secret 파일에 추가
+ 먼저 user+passwd string을 base64 format으로 출력
+ $ echo -n 'myuser:mypassword' | base64 -w0
+ $ REG_SECRET=`echo -n 'myuser:mypassword' | base64 -w0`
+ $ echo $REG_SECRET
+
+ 모든 registry 파일에 대한 bundle json 파일 생성
+ $ cat pull-secret.json | jq '.auths += {"registry:5000": {"auth": "REG_SECRET","email": "whpark@saltware.co.kr"}}' | sed "s/REG_SECRET/$REG_SECRET/" > pull-secret-bundle.json
+ $ cat pull-secret-bundle.json | jq
+
+ we will need a small output of the registry login for the openshift-install.yaml file once we are internally so we will create it now.
+ echo '{ "auths": {}}' | jq '.auths += {"registry:5000": {"auth": "REG_SECRET","email": "whpark@saltware.co.kr"}}' | sed "s/REG_SECRET/$REG_SECRET/" | jq -c .> pull-secret-registry.json
+
+ $ export LOCAL_REGISTRY='registry:5000'
+ $ export OCP_RELEASE="${OCP_RELEASE}-x86_64" 
+ $ export LOCAL_REPOSITORY='ocp/openshift4'
+ $ export PRODUCT_REPO='openshift-release-dev' 
+ $ export LOCAL_SECRET_JSON="${REGISTRY_BASE}/downloads/secrets/pull-secret-bundle.json" 
+ $ export RELEASE_NAME="ocp-release"
+
+ 환경변수 저장
+ $ echo "export LOCAL_REGISTRY='registry:5000'" >> ${REGISTRY_BASE}/downloads/tools/env_ocp
+ $ echo '[[ ! ${OCP_RELEASE} =~ 'x86_64' ]] && export OCP_RELEASE="${OCP_RELEASE}-x86_64"' >> ${REGISTRY_BASE}/downloads/tools/env_ocp
+ $ echo "export LOCAL_REPOSITORY='ocp/openshift4'" >> ${REGISTRY_BASE}/downloads/tools/env_ocp
+ $ echo "export PRODUCT_REPO='openshift-release-dev'" >> ${REGISTRY_BASE}/downloads/tools/env_ocp
+ $ echo 'export LOCAL_SECRET_JSON="${REGISTRY_BASE}/downloads/secrets/pull-secret-bundle.json"' >> ${REGISTRY_BASE}/downloads/tools/env_ocp
+ $ echo 'export RELEASE_NAME="ocp-release"' >> ${REGISTRY_BASE}/downloads/tools/env_ocp
+
+$ oc adm -a ${LOCAL_SECRET_JSON} release mirror \
+--from=quay.io/${PRODUCT_REPO}/${RELEASE_NAME}:${OCP_RELEASE} \
+--to=${LOCAL_REGISTRY}/${LOCAL_REPOSITORY} \
+--to-release-image=${LOCAL_REGISTRY}/${LOCAL_REPOSITORY}:${OCP_RELEASE} \
+2>&1 | tee ${REGISTRY_BASE}/downloads/secrets/mirror-output.txt
+
+** self-signed certificate으로 인한  에러 발생
+error: unable to connect to registry:5000/ocp/openshift4: Get "https://registry:5000/v2/": x509: certificate signed by unknown authority
+
+
+-- 아래 것 작동 안함
+@srbala which error is shown in the logs? I assume that it is failing due to the self-signed certificate. To fix that you'd need to run podman using the --tls-verify=false option (for development purposes only!) or sign your registry's certificate using a CA certificate that you register with podman by mounting it to /etc/ssl/certs/ca-cert-registry.pem or the directory you specify with the --cert-dir option.
