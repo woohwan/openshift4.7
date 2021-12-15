@@ -1,0 +1,41 @@
+1. 모듈 설치
+  $ dnf install -y nsf-utils
+
+2. Server 설정
+  $ mkdir -p /nfs/registry
+  $ chown -R nobody:nobody /nfs/registry
+  $ chmod -R 777 /nfs/registry/
+
+3. export
+  $ echo "/nfs/registry  192.168.67.0/24(rw,sync,root_squash,no_subtree_check,no_wdelay)" > /etc/exports
+  $ exportfs -rv
+    exporting 192.168.67.0/24:/nfs/registry
+
+4. firewall 설정
+  insteral zone 존재 확인
+  $ firewall-cmd --get-active-zone
+  $ firewall-cmd --zone=internal --add-service mountd --permanent
+  $ firewall-cmd --zone=internal --add-service rpc-bind --permanent
+  $ firewall-cmd --zone=internal --add-service nfs --permanent
+  $ firewall-cmd --reload
+
+5. NFS 관련 서비스 enable
+  $ systemctl enable nfs-server rpcbind
+  $ systemctl start nfs-server rpcbind nfs-mountd
+
+  관련 서비스 확인
+  $ systemctl status nfs-server
+
+6. 다른 서버에서 NFS Service 확인
+  $ dnf install -y nfs-utils
+  - mount directory 조회
+  $ showmount -e <NFS Server IP>
+  
+  - mount test
+  $ mkdir <temp directory>
+  $ mount -t nfs -o sync <NFS서버 IP>:<Volume Directory> <temp directory>
+  $ df -h
+
+  - umount
+  $ umount <temp directory>
+  $ rm -rf <temp directory

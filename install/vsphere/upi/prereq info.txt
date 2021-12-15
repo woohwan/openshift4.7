@@ -1,3 +1,19 @@
+Machine				Type			        OS				  vCPU	RAM		Storage		IP Address	Mac   : OCP Network
+--------------------------------------------------------------------------------------------------------------------
+bootstrap	Bootstrap	        Fedora CoreOS	  4		16		100			192.168.1.100	      00:50:56:3c:0a:3d
+cp0			  control plane			Fedora CoreOS	  4		16		100			192.168.1.101	      00:50:56:2e:f7:e3
+cp1			  control plane			Fedora CoreOS	  4		16		100			192.168.1.102	      00:50:56:25:eb:d6
+cp2			  control plane			Fedora CoreOS	  4		16		100			192.168.1.103	      00:50:56:1a:26:f6
+w0				compute node			Fedora CoreOS	  4		16		100			192.168.1.110	      00:50:56:26:a5:df
+w1				compute node			Fedora CoreOS	  4		16		100			192.168.1.111	      00:50:56:03:63:00
+
+Bastion				DNS/LB/Web/NFS/Mirror Registry		CentOS		4	4	500		192.168.22.1	00:50:56:0a:17:c8
+---------------------------------------------------------------------------------------------------------------------------
+                                                	                	172.20.2.210	00:0c:29:01:d8:56	
+
+domain: steve-ml.net
+
+
 1. DNS for OCP
    ip: 172.20.2.231
    for DNS: 127.0.0.1 (?)
@@ -75,3 +91,137 @@ update-ca-trust extract
  $ ssh-keygen
  $ eval "$(ssh-agent)"
  # add ssh private key to the ssh-agent
+
+
+
+
+
+
+ 8. Image Registry 생성
+shared object storage를 지원하지 않는 paltform에 설치 시 , OCP는 Image Registry Operator가 삭제된 상태로 bootstrap한다.
+NFS 구성과 Storage Class 구성 완료 후  Image Registry Operator configuration의 아래 사항을 변경한다.
+managementState: Removed -> Managed
+
+
+** 주의사항: vSphere용 OCP의  default thin Storage Class는 RWX 모드를 지원하지 않는다.
+따라서, RWX를 지원하는 별도의 Storage Class를 만들어야 한다.
+
+RedHat 공식 Provisioner가 없으므로 아래 Open source Provisioner를 사용한다.
+
+Kubernetes NFS Subdir External Provisioner  ( https://github.com/kubernetes-sigs/nfs-subdir-external-provisioner.git )를 사용한다.
+  
+  8.1 workding directory 이동 및 git clone
+  $ mkdir work && cd work
+  $ git clone https://github.com/kubernetes-sigs/nfs-subdir-external-provisioner.git
+  $ cd nfs-subdir-external-provisioner
+
+  8.2 Setup Authorization
+    - 8.2.1 Provisioner를 배포할 project 생성
+    $ oc new-project nfs-provisioner
+
+    - deploy/rbac.yaml 을 편집한다.
+      # Set the subject of the RBAC objects to the current namespace where the provisioner is being deployed
+      현재 project 확인
+      $ oc project
+      Using project "nfs-provisioner" on server "https://api.ocp67.steve-ml.net:6443".
+      $ NAMESPACE=`oc project -q`
+      $ echo NAMESPACE
+      $ sed -i'' "s/namespace:.*/namespace: $NAMESPACE/g" ./deploy/rbac.yaml ./deploy/deployment.yaml
+      $ oc create -f deploy/rbac.yaml
+      $ oc adm policy add-scc-to-user hostmount-anyuid system:serviceaccount:$NAMESPACE:nfs-client-provisioner
+
+  8.3 NFS subdir external provisioner 구성 및 수행
+    8.3.1 ./deploy/deployment.yaml 을 구성한 NFS 정보에 맞게 수정
+  -------------------------------------------
+  apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nfs-client-provisioner
+  labels:
+    app: nfs-client-provisioner
+  # replace with namespace where provisioner is deployed
+  namespace: nfs-provisioner
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: nfs-client-provisioner
+  template:
+    metadata:
+      labels:
+        app: nfs-client-provisioner
+    spec:
+      serviceAccountName: nfs-client-provisioner
+      containers:
+        - name: nfs-client-provisioner
+          image: k8s.gcr.io/sig-storage/nfs-subdir-external-provisioner:v4.0.2
+          volumeMounts:
+            - name: nfs-client-root
+              mountPath: /persistentvolumes
+          env:
+            - name: PROVISIONER_NAME
+              value: k8s-sigs.io/nfs-subdir-external-provisioner
+            - name: NFS_SERVER
+              value: 192.168.67.1
+            - name: NFS_PATH
+              value: /nfs/registry
+      volumes:
+        - name: nfs-client-root
+          nfs:
+            server: 192.168.67.1
+            path: /nfs/registry
+--------------------------------------------------------------------------
+    8.3.2 
+    $ oc create -f deploy/deployment.yaml
+    $ oc get pods
+    NAME                                     READY   STATUS    RESTARTS   AGE
+    nfs-client-provisioner-6c7f447cd-jmg28   1/1     Running   0          10s
+
+  8.4 Storage class 수행 및 테스트
+    $ oc create -f deploy/class.yaml
+    $ oc get sc
+    $ kubectl create -f deploy/test-claim.yaml -f deploy/test-pod.yaml
+    
+    - NFS Server SUCCESS 파일 확인 후 test app 삭제
+    $ kubectl delete -f deploy/test-pod.yaml -f deploy/test-claim.yaml
+    - folder 삭제 확인
+
+  8.5 Local Image Registry 용  PVC 생성
+    $ oc project openshift-image-registry (namespace를 openshift-image-registry로 변경)
+    $ vi image-registry-pvc.yaml
+    --------------------------------------------
+    kind: PersistentVolumeClaim
+    apiVersion: v1
+    metadata:
+      name: image-registry-pvc
+      annotations:
+        nfs.io/storage-path: "/shares/registry" # not required, depending on whether this annotation was shown in the storage class description
+    spec:
+      storageClassName: managed-nfs-storage
+      accessModes:
+        - ReadWriteMany
+      resources:
+        requests:
+          storage: 100Gi
+    --------------------------------------------------------
+    $ oc create -f image-registry-pvc.yaml
+    $ oc get pvc
+    NAME                 STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS          AGE
+    image-registry-pvc   Bound    pvc-6fb2cd10-c7f8-4cd1-9950-3e96c13c382e   100Gi      RWX            managed-nfs-storage   6s
+
+  8.6 image registry config 변경
+    $ oc edit configs.imageregistry.operator.openshift.io -o yaml
+    managementState: Removed --> Managed
+    storage: {}
+
+    storage:
+      pvc:
+        claim: image-registry-pvc
+
+  8.7 mage-registry cluster-operator의 상태를 확인
+    $ watch oc get co image-registry
+    - Available이 True로 변경될때까지 기다립니다.
+    pod 정상 작동 확인
+    $ oc get po -n openshift-image-registry
