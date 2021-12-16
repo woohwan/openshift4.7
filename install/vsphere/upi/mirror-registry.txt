@@ -4,8 +4,7 @@ $ export REGISTRY_BASE="/opt/registry"
 $ mkdir -p ${REGISTRY_BASE}/{auth,certs,data,downloads}
 $ mkdir -p ${REGISTRY_BASE}/downloads/{images,tools,secrets}
 
-$ vi /etc/hosts
-$ 127.0.0.1      registry
+amazone route53에 registry.steve-ml.net 172.20.2.140 설정
 
 $ dnf install -y jq openssl podman p7zip httpd-tools curl wget screen nmap telnet ftp tftp openldap-clients tcpdump wireshark xorg-x11-xauth tmux net-tools nfs-utils sg3_utils bind-utils rlwrap uucp
 
@@ -26,7 +25,23 @@ emailAddress=me@working.me
 CN = registry
 EOF
 
+-- 21.12.06 추가 -------------------------------------------
+1. zeroSSL에서 steve-ml.net 인증서 받음  -->  unknown authority
+2. Letsencrypt에서 발급한 인증서 pem 파일을 .crt와 .key로 변환 (wildcard로 인증받음.
+*.steve-ml.net) --> unknown authority
+$ openssl rsa -in privkey.pem -text >  domain.key
+$ openssl x509 -inform PEM -in fullchain.pem -out domain.crt 
+
+3. 다시 zeroSSL에서 registry.steve-ml.net으로 다시 받음. (성공!!!!)
+$ unzip registry.steve-ml.net.zip
+$ cat certificate.crt ca_bundle.crt > domain.crt
+$ mv privkey.key domain.key
+
+
 $ openssl req -newkey rsa:4096 -nodes -sha256 -keyout domain.key -x509 -days 365 -out domain.crt -config <( cat csr_answer.txt ) -addext "subjectAltName = DNS:registry"
+-------------------------------------------
+
+
 
 $ ls -al
 total 20
@@ -46,9 +61,10 @@ $ echo ${FIREWALLD_DEFAULT_ZONE}
 public
 
 $ firewall-cmd --add-port=5000/tcp --zone=${FIREWALLD_DEFAULT_ZONE} --permanent
+$ firewall-cmd --add-port=5000/tcp --zone=internal --permanent 
 $ firewall-cmd --reload
 
-$ echo 'podman run --name my-registry --rm -d -p 5000:5000 \
+$ echo 'podman run --name my-registry -d -p 5000:5000 \
 -v ${REGISTRY_BASE}/data:/var/lib/registry:z \
 -v ${REGISTRY_BASE}/auth:/auth:z -e "REGISTRY_AUTH=htpasswd" \
 -e "REGISTRY_AUTH_HTPASSWD_REALM=Registry" \
@@ -57,22 +73,8 @@ $ echo 'podman run --name my-registry --rm -d -p 5000:5000 \
 -v ${REGISTRY_BASE}/certs:/certs:z \
 -e REGISTRY_HTTP_TLS_CERTIFICATE=/certs/domain.crt \
 -e REGISTRY_HTTP_TLS_KEY=/certs/domain.key \
+-e REGISTRY_COMPATIBILITY_SCHEMA1_ENABLED=true \
 docker.io/library/registry:2' > ${REGISTRY_BASE}/downloads/tools/start_registry.sh
-
-
-$ cd ${REGISTRY_BASE}/downloads/tools/
-start_registry.sh 작성
-
-podman run --name my-registry --rm -d -p 5000:5000 \
--v /opt/registry/data:/var/lib/registry:z \
--v /opt/registry/auth:/auth:z -e "REGISTRY_AUTH=htpasswd" \
--e "REGISTRY_AUTH_HTPASSWD_REALM=Registry" \
--e "REGISTRY_HTTP_SECRET=ALongRandomSecretForRegistry" \
--e "REGISTRY_AUTH_HTPASSWD_PATH=/auth/htpasswd" \
--v /opt/registry/certs:/certs:z \
--e "REGISTRY_HTTP_TLS_CERTIFICATE=/certs/domain.crt" \
--e "REGISTRY_HTTP_TLS_KEY=/certs/domain.key" \
-docker.io/library/registry:2
 
 $ chmod a+x ${REGISTRY_BASE}/downloads/tools/start_registry.sh
 $ ${REGISTRY_BASE}/downloads/tools/start_registry.sh
@@ -85,6 +87,11 @@ $ podman logs my-registry
 실행 확인
 $ curl -u myuser:mypassword -k https://registry:5000/v2/_catalog 
 {"repositories":[]}
+
+# l
+$ podman login -u myuser -p mypassword registry.steve-ml.net:5000
+Error: authenticating creds for "registry.steve-ml.net:5000": pinging container registry registry.steve-ml.net:5000: Get "https://registry.steve-ml.net:5000/v2/": net/http: TLS handshake timeout
+--> firewall port 확인 할 것: public, internal등 (http, https 포함)
 
 Repository 동기화
 
@@ -148,36 +155,96 @@ downloads/images/
  $ echo $REG_SECRET
 
  모든 registry 파일에 대한 bundle json 파일 생성
- $ cat pull-secret.json | jq '.auths += {"registry:5000": {"auth": "REG_SECRET","email": "whpark@saltware.co.kr"}}' | sed "s/REG_SECRET/$REG_SECRET/" > pull-secret-bundle.json
+ $ cat pull-secret.json | jq '.auths += {"registry.steve-ml.net:5000": {"auth": "REG_SECRET","email": "whpark@saltware.co.kr"}}' | sed "s/REG_SECRET/$REG_SECRET/" > pull-secret-bundle.json
  $ cat pull-secret-bundle.json | jq
 
  we will need a small output of the registry login for the openshift-install.yaml file once we are internally so we will create it now.
- echo '{ "auths": {}}' | jq '.auths += {"registry:5000": {"auth": "REG_SECRET","email": "whpark@saltware.co.kr"}}' | sed "s/REG_SECRET/$REG_SECRET/" | jq -c .> pull-secret-registry.json
+ echo '{ "auths": {}}' | jq '.auths += {"registry.steve-ml.net:5000": {"auth": "REG_SECRET","email": "whpark@saltware.co.kr"}}' | sed "s/REG_SECRET/$REG_SECRET/" | jq -c .> pull-secret-registry.json
 
- $ export LOCAL_REGISTRY='registry:5000'
- $ export OCP_RELEASE="${OCP_RELEASE}-x86_64" 
+ $ export LOCAL_REGISTRY='registry.steve-ml.net:5000'
+ $ export OCP_RELEASE='4.7.33'
  $ export LOCAL_REPOSITORY='ocp/openshift4'
  $ export PRODUCT_REPO='openshift-release-dev' 
  $ export LOCAL_SECRET_JSON="${REGISTRY_BASE}/downloads/secrets/pull-secret-bundle.json" 
  $ export RELEASE_NAME="ocp-release"
 
+ $ mkdir /root/archive
+ $ export REMOVABLE_MEDIA_PATH=/root/archive
+
  환경변수 저장
- $ echo "export LOCAL_REGISTRY='registry:5000'" >> ${REGISTRY_BASE}/downloads/tools/env_ocp
- $ echo '[[ ! ${OCP_RELEASE} =~ 'x86_64' ]] && export OCP_RELEASE="${OCP_RELEASE}-x86_64"' >> ${REGISTRY_BASE}/downloads/tools/env_ocp
+ $ echo "export LOCAL_REGISTRY='registry.steve-ml.net:5000'" >> ${REGISTRY_BASE}/downloads/tools/env_ocp
+ $ echo "export OCP_RELEASE="${OCP_RELEASE}-x86_64"' >> ${REGISTRY_BASE}/downloads/tools/env_ocp
  $ echo "export LOCAL_REPOSITORY='ocp/openshift4'" >> ${REGISTRY_BASE}/downloads/tools/env_ocp
  $ echo "export PRODUCT_REPO='openshift-release-dev'" >> ${REGISTRY_BASE}/downloads/tools/env_ocp
  $ echo 'export LOCAL_SECRET_JSON="${REGISTRY_BASE}/downloads/secrets/pull-secret-bundle.json"' >> ${REGISTRY_BASE}/downloads/tools/env_ocp
  $ echo 'export RELEASE_NAME="ocp-release"' >> ${REGISTRY_BASE}/downloads/tools/env_ocp
 
-$ oc adm -a ${LOCAL_SECRET_JSON} release mirror \
---from=quay.io/${PRODUCT_REPO}/${RELEASE_NAME}:${OCP_RELEASE} \
+$ oc adm  release mirror -a ${LOCAL_SECRET_JSON} \
+--from=quay.io/${PRODUCT_REPO}/${RELEASE_NAME}:${OCP_RELEASE}-${ARCHITECTURE} \
 --to=${LOCAL_REGISTRY}/${LOCAL_REPOSITORY} \
---to-release-image=${LOCAL_REGISTRY}/${LOCAL_REPOSITORY}:${OCP_RELEASE} \
+--to-release-image=${LOCAL_REGISTRY}/${LOCAL_REPOSITORY}:${OCP_RELEASE}-${ARCHITECTURE} \
 2>&1 | tee ${REGISTRY_BASE}/downloads/secrets/mirror-output.txt
 
-** self-signed certificate으로 인한  에러 발생
-error: unable to connect to registry:5000/ocp/openshift4: Get "https://registry:5000/v2/": x509: certificate signed by unknown authority
+--- in ocp document -- 천천히 정리 할 것 ---
+https://access.redhat.com/documentation/ko-kr/openshift_container_platform/4.7/html/images/installation-mirror-repository_samples-operator-alt-registry
+미러링할 이미지 및 설정 메니페스트 확인 
+$ oc adm release mirror -a ${LOCAL_SECRET_JSON}  \
+     --from=quay.io/${PRODUCT_REPO}/${RELEASE_NAME}:${OCP_RELEASE}-${ARCHITECTURE} \
+     --to=${LOCAL_REGISTRY}/${LOCAL_REPOSITORY} \
+     --to-release-image=${LOCAL_REGISTRY}/${LOCAL_REPOSITORY}:${OCP_RELEASE}-${ARCHITECTURE} --dry-run
+
+미러링 실행: 곧바로 외부미디어로 보냄.
+oc adm release mirror -a ${LOCAL_SECRET_JSON} --to-dir=${REMOVABLE_MEDIA_PATH}/mirror quay.io/${PRODUCT_REPO}/${RELEASE_NAME}:${OCP_RELEASE}-${ARCHITECTURE}
+
+-----------------------------------------------------------------
 
 
--- 아래 것 작동 안함
-@srbala which error is shown in the logs? I assume that it is failing due to the self-signed certificate. To fix that you'd need to run podman using the --tls-verify=false option (for development purposes only!) or sign your registry's certificate using a CA certificate that you register with podman by mounting it to /etc/ssl/certs/ca-cert-registry.pem or the directory you specify with the --cert-dir option.
+
+
+
+
+
+openshift-install binary 생성
+
+$ cd ${REGISTRY_BASE}/downloads/tools/
+$ oc adm -a ${LOCAL_SECRET_JSON} release extract --command=openshift-install "${LOCAL_REGISTRY}/${LOCAL_REPOSITORY}:${OCP_RELEASE}"
+$ echo $?
+
+install-config.yaml 파일 생성
+$ cd ${REGISTRY_BASE}/downloads/tools
+$ cat > install-config.yaml << EOF
+apiVersion: v1
+baseDomain: example.com
+controlPlane:
+  name: master
+  hyperthreading: Enabled 
+  replicas: 3
+compute:
+- name: worker
+  hyperthreading: Enabled
+  replicas: 3
+metadata:
+  name: test-cluster
+networking:
+  clusterNetworks:
+  - cidr: 10.128.0.0/14
+    hostPrefix: 23
+  machineNetwork:
+  - cidr: 172.18.0.0/16
+  networkType: OpenShiftSDN
+  serviceNetwork:
+  - 172.30.0.0/16
+platform:
+  none: {} 
+fips: false
+pullSecret: '{"auths": ...}'
+sshKey: 'ssh-ed25519 AAAA...'
+additionalTrustBundle: |
+     -----BEGIN CERTIFICATE-----
+     <...base-64-encoded, DER - CA certificate>
+     -----END CERTIFICATE-----
+EOF
+
+Registry 저장
+$ podman stop my-registry
+$ podman rm --force my-registry
