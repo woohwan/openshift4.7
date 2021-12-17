@@ -197,10 +197,62 @@ $ oc adm release mirror -a ${LOCAL_SECRET_JSON}      --from=quay.io/${PRODUCT_RE
 
 Repository 검증
 $ curl -u admin:passw0rd -k https://dist.steve-ml.net:5000/v2/_catalog
+{"repositories":["ocp4/openshift4","ubi8"]}
+$ podman pull --authfile ./local_pullsecret.json dist.steve-ml.net:5000/ocp4/openshift4:4.7.33-operator-lifecycle-manager
 
-$ podman pull --authfile ~/local_pullsecret.json dist.steve-ml.net:5000/ocp4/openshift4:4.7.33-operator-lifecycle-manager
 
+### 4. Modify install-config.yaml
+regular install-config.yaml 사용
+- Add the ImageContentSourcePolicy that points to your new private image registry.
+- Add the certificate bundle to authenticate against your private image registry.
 
+1. 먼저 registry로부터 openshift-install 추출
+$ oc adm release extract -a ${LOCAL_SECRET_JSON} --command=openshift-install "${LOCAL_REGISTRY}/${LOCAL_REPOSITORY}:${OCP_RELEASE}"
+
+$ ./openshift-install version
+
+------ sample install-config.yaml ----------------------------------------------------------------
+apiVersion: v1
+baseDomain: example.com 
+compute: 
+- hyperthreading: Enabled 
+  name: worker
+  replicas: 0 
+  architecture : s390x
+controlPlane: 
+  hyperthreading: Enabled 
+  name: master
+  replicas: 3 
+  architecture : s390x
+metadata:
+  name: test 
+networking:
+  clusterNetwork:
+  - cidr: 10.128.0.0/14 
+    hostPrefix: 23 
+  networkType: OpenShiftSDN
+  serviceNetwork: 
+  - 172.30.0.0/16
+platform:
+  none: {} 
+fips: false 
+pullSecret: '{"auths":{"<local_registry>": {"auth": "<credentials>","email": "you@example.com"}}}' 
+sshKey: 'ssh-ed25519 AAAA...' 
+additionalTrustBundle: | 
+  -----BEGIN CERTIFICATE-----
+  ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ
+  -----END CERTIFICATE-----
+imageContentSources: 
+- mirrors:
+  - <local_repository>/ocp4/openshift4
+  source: quay.io/openshift-release-dev/ocp-release
+- mirrors:
+  - <local_repository>/ocp4/openshift4
+  source: quay.io/openshift-release-dev/ocp-v4.0-art-dev
+
+  ----------------------------------------------------------------------------------------------
+
+Bundle Certifcate에는 registry domain.crt가 내용이 들어간다.
 
 
 
