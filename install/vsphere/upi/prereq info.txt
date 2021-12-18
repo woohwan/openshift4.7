@@ -97,6 +97,17 @@ update-ca-trust extract
 
 
 
+7. OVA
+환경변수 변경
+export IPCFG="ip=<ip>::<gateway>:<netmask>:<hostname>:<iface>:none nameserver=srv1 [nameserver=srv2 [nameserver=srv3 [...]]]"
+
+- bootstrap
+export IPCFG="ip=192.168.100.101::192.168.100.254:255.255.255.0:::none nameserver=8.8.8.8"
+govc vm.change -vm "<vm_name>" -e "guestinfo.afterburn.initrd.network-kargs=${IPCFG}"
+
+
+
+
  8. Image Registry 생성
 shared object storage를 지원하지 않는 paltform에 설치 시 , OCP는 Image Registry Operator가 삭제된 상태로 bootstrap한다.
 NFS 구성과 Storage Class 구성 완료 후  Image Registry Operator configuration의 아래 사항을 변경한다.
