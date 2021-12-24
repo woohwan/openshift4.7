@@ -27,8 +27,7 @@ EOF
 
 -- 21.12.06 추가 -------------------------------------------
 1. zeroSSL에서 steve-ml.net 인증서 받음  -->  unknown authority
-2. Letsencrypt에서 발급한 인증서 pem 파일을 .crt와 .key로 변환 (wildcard로 인증받음.
-*.steve-ml.net) --> unknown authority
+2. Letsencrypt에서 발급한 인증서 pem 파일을 .crt와 .key로 변환 (wildcard로 인증받음. *.steve-ml.net) --> unknown authority
 $ openssl rsa -in privkey.pem -text >  domain.key
 $ openssl x509 -inform PEM -in fullchain.pem -out domain.crt 
 
@@ -152,6 +151,24 @@ $ echo "export OCP_RELEASE=${OCP_RELEASE}" >> ${REGISTRY_BASE}/downloads/tools/e
  $ echo -n 'myuser:mypassword' | base64 -w0
  $ REG_SECRET=`echo -n 'myuser:mypassword' | base64 -w0`
  $ echo $REG_SECRET
+
+** only local registry에 대한 credential을 작성시  --> quay registry login시 사용 ( https://github.com/woohwan/openshift-mirror-registry )
+----------------------------------------------
+$ echo -n 'admin:whsy0805' | base64 -w0;echo
+YWRtaW46d2hzeTA4MDU=
+$ vi admin-secret.txt
+{
+  "auths": {
+    "localhost:8443": {
+      "auth": "YWRtaW46d2hzeTA4MDU=",
+      "email": "you@example.com"
+    }
+  }
+}
+
+$ cat admin-pullsceret.txt |jq . > admin-pullsceret.json
+-------------------------------------
+
 
  모든 registry 파일에 대한 bundle json 파일 생성
  $ cat pull-secret.json | jq '.auths += {"registry.steve-ml.net:5000": {"auth": "REG_SECRET","email": "whpark@saltware.co.kr"}}' | sed "s/REG_SECRET/$REG_SECRET/" > pull-secret-bundle.json
