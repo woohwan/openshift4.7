@@ -94,6 +94,40 @@ $ LOCAL_REPOSITORY='ocp4/openshift4'
 6. dry-run으로 결과 review
 oc adm release mirror -a ${LOCAL_SECRET_JSON} --to-dir=mirror quay.io/${PRODUCT_REPO}/${RELEASE_NAME}:${OCP_RELEASE}-${ARCHITECTURE} --dry-run
 
+### for install-config 항목
+$ oc adm -a ${LOCAL_SECRET_JSON} release mirror \
+   --from=quay.io/${PRODUCT_REPO}/${RELEASE_NAME}:${OCP_RELEASE}-${ARCHITECTURE} \
+   --to=${LOCAL_REGISTRY}/${LOCAL_REPOSITORY} \
+   --to-release-image=${LOCAL_REGISTRY}/${LOCAL_REPOSITORY}:${OCP_RELEASE}-${ARCHITECTURE} --dry-run
+
+To use the new mirrored repository to install, add the following section to the install-config.yaml:
+
+imageContentSources:
+- mirrors:
+  - registry.steve-ml.net:8443/ocp4/openshift4
+  source: quay.io/openshift-release-dev/ocp-release
+- mirrors:
+  - registry.steve-ml.net:8443/ocp4/openshift4
+  source: quay.io/openshift-release-dev/ocp-v4.0-art-dev
+
+
+To use the new mirrored repository for upgrades, use the following to create an ImageContentSourcePolicy:
+
+apiVersion: operator.openshift.io/v1alpha1
+kind: ImageContentSourcePolicy
+metadata:
+  name: example
+spec:
+  repositoryDigestMirrors:
+  - mirrors:
+    - registry.steve-ml.net:8443/ocp4/openshift4
+    source: quay.io/openshift-release-dev/ocp-release
+  - mirrors:
+    - registry.steve-ml.net:8443/ocp4/openshift4
+    source: quay.io/openshift-release-dev/ocp-v4.0-art-dev
+
+-----------------------------------------------------------------------------------------------    
+
 stats: shared=5 unique=262 size=7.483GiB ratio=0.99
 
 phase 0:
@@ -130,6 +164,21 @@ $ oc image mirror -a ${LOCAL_SECRET_JSON} --from-dir=mirror 'file://openshift/re
 ${LOCAL_REGISTRY}/${LOCAL_REPOSITORY} \
 2>&1 | tee secrets/mirror-upload-output.txt
 
+
+$ REG_CREDS=${XDG_RUNTIME_DIR}/containers/auth.json
+$ cat $REG_CREDS # quay auth파일과 동일
+
+따라서, catalog mirroring을 하기 위해서는 auth.json에 registry.redhat.io에 관련 credential을 추가해서
+사용해서 된다. 그렇지 않으면 인증에러 발생.
+여기서는 간단하게 위에서 만든 merged-pullsecret.json 사용
+
+oc adm catalog mirror \
+registry.redhat.io/redhat/redhat-operator-index:v4.7 \
+file://local/index \
+-a ~/secrets/merged-pullsecret.json
+
+초기에 아무런 response가 없을 정도로 느리게 진행됨.
+mirroring location은 workding directory 아래 v2 dir.
 
 
 

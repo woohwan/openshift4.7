@@ -30,12 +30,7 @@ vCenter domain은 내부 DNS를 사용하므로, dns는 172.20.2.230을 사용�
   Name:   api.ocp4.steve-ml.net
   Address: 172.20.2.228
 
-template에서 vm 생성 후 ip 설정
-회사 Network을 사용하므로 설정 전에 ip 사용 check할 것
-export IPCFG="ip=<ip>::<gateway>:<netmask>:<hostname>:<iface>:none nameserver=srv1 [nameserver=srv2 [nameserver=srv3 [...]]]"
-export IPCFG="ip=172.20.2.110::172.20.0.1:255.255.252.0:::none nameserver=8.8.8.8"
-govc vm.change -vm "bastion" -e "guestinfo.afterburn.initrd.network-kargs=${IPCFG}"
-govc vm.info
+
 
   4.1 SSH Private Key 생성 및 SSH-Agent에 추가
     4.1.1 - private key 생성 (passphrase: just Enter)
@@ -125,6 +120,183 @@ sshKey: 'ssh-ed25519 AAAA...'
 
     output을 copy & paste
 
+위 install-config 파일에 mirror registry에 관련된 additionalTrustBundle  및 imageContentSources를 추가한다.
+quay-mirror 설치 참고 ( https://github.com/quay/openshift-mirror-registry )
+
+mirror resgtry로 부터 ssl.cert (Quay mirro)를 복사
+$ scp root@quay:certs/ssl.cert .
+
+additionalTrustBundle 항목 추가
+$ echo "additionalTrustBundle: |" >> ocp4/install-config.yaml
+$ cat certs/ssl.cert |sed 's/^/\ \ /g' >> ocp4/install-config.yaml
+
+imageContentSources:
+- mirrors:
+  - registry.steve-ml.net:8443/ocp4/openshift4
+  source: quay.io/openshift-release-dev/ocp-release
+- mirrors:
+  - registry.steve-ml.net:8443/ocp4/openshift4
+  source: quay.io/openshift-release-dev/ocp-v4.0-art-dev
+
+
+
     4.3.4 Creating the Kubernetes manifest and Ignition config files
+    $ openshift-install create manifests --dir ocp4/
 
+### Configuring chrony time service
+  Create the contents of the chrony.conf file and encode it as base64.
+  $ cat << EOF | base64
+    pool 0.rhel.pool.ntp.org iburst 
+    driftfile /var/lib/chrony/drift
+    makestep 1.0 3
+    rtcsync
+    logdir /var/log/chrony
+  EOF
+  ICAgIHNlcnZlciBjbG9jay5yZWRoYXQuY29tIGlidXJzdAogICAgZHJpZnRmaWxlIC92YXIvbGli
+L2Nocm9ueS9kcmlmdAogICAgbWFrZXN0ZXAgMS4wIDMKICAgIHJ0Y3N5bmMKICAgIGxvZ2RpciAv
+dmFyL2xvZy9jaHJvbnkK
 
+  $ vi ocp4/openshift/99-masters-chrony-configuration.yaml
+apiVersion: machineconfiguration.openshift.io/v1
+kind: MachineConfig
+metadata:
+  labels:
+    machineconfiguration.openshift.io/role: master
+  name: 99-masters-chrony-configuration
+spec:
+  config:
+    ignition:
+      config: {}
+      security:
+        tls: {}
+      timeouts: {}
+      version: 3.2.0
+    networkd: {}
+    passwd: {}
+    storage:
+      files:
+      - contents:
+          source: data:text/plain;charset=utf-8;base64,ICAgIHNlcnZlciBjbG9jay5yZWRoYXQuY29tIGlidXJzdAogICAgZHJpZnRmaWxlIC92YXIvbGliL2Nocm9ueS9kcmlmdAogICAgbWFrZXN0ZXAgMS4wIDMKICAgIHJ0Y3N5bmMKICAgIGxvZ2RpciAvdmFyL2xvZy9jaHJvbnkK
+        mode: 420
+        overwrite: true
+        path: /etc/chrony.conf
+  osImageURL: ""
+-------------------------------------------------------    
+
+    masterSchedulable Parameter 변경
+    $ vi ocp4/manifests/cluster-scheduler-02-config.yml
+    mastersSchedulable: true -> false
+
+    Remove the Kubernetes manifest files that define the control plane machines and compute machine sets:
+    $ rm -f openshift/99_openshift-cluster-api_master-machines-*.yaml openshift/99_openshift-cluster-api_worker-machineset-*.yaml
+
+    4.3.5 Extracting the infrastructure name
+    $  jq -r .infraID ocp4/metadata.json
+    ocp4-r7pml
+
+  4.4 Creating Red Hat Enterprise Linux CoreOS (RHCOS) machines in vSphere
+  RHCOS와 관련된 ignition file의 http로 가져올 수 있도록 HTTP Server 준비할 것
+  ignition file을 base64 encoding해서 VM의 환경변수로 입력하는 데, bootstrap.ign은 크기가 커서
+  merge-bootstarp.ign을 작성하고, 내용에 실제 bootstrap.ign URL을 기입한다.
+
+  $ cp ocp4/*.ign /var/www/html/ocp4/.
+  $ chown -R apache:apache /var/www/html
+  $ chmod 777 /var/www/html/ocp4/*
+
+  $ vi ocp4/merge-bootstrap.ign
+{
+  "ignition": {
+    "config": {
+      "merge": [
+        {
+          "source": "http://172.20.2.110/ocp4/bootstrap.ign",
+          "verification": {}
+        }
+      ]
+    },
+    "timeouts": {},
+    "version": "3.2.0"
+  },
+  "networkd": {},
+  "passwd": {},
+  "storage": {},
+  "systemd": {}
+}
+
+  ignition file encoding
+  $ cd ocp4
+  $ base64 -w0 merge-bootstrap.ign > merge-bootstrap.64
+  $ base64 -w0 master.ign > master.64
+  $ base64 -w0 worker.ign > worker.64
+
+  여기서는 먼저 간단히 test 하기 위해 bootstrap 만 먼저 기동해본다.  (향후 terraform/ansible 자동화)
+  Booting a new Core OS VM on VSphere ( ref: https://docs.fedoraproject.org/en-US/fedora-coreos/provisioning-vmware/ )
+
+  Importing OVA
+  $ RHCOS_OVA='Downloads/rhcos-vmware.x86_64.ova'
+  $ LIBRARY='rhcos'
+  $ TEMPLATE_NAME='rhcos-4.7.33'
+  $ govc session.login -u 'user:password@host'
+  $ govc library.create "${LIBRARY}"
+  $ govc library.import -n "${TEMPLATE_NAME}" "${LIBRARY}" "${RHCOS_OVA}"
+
+  Setting up a new VM
+  bootstrap config data
+  $ BOOTSTRAP_ENCODING_DATA=$(cat ocp4/merge-bootstrap.64;echo;)
+  $ echo $BOOTSTRAP_ENCODING_DATA
+ewogICJpZ25pdGlvbiI6IHsKICAgICJjb25maWciOiB7CiAgICAgICJtZXJnZSI6IFsKICAgICAgICB7CiAgICAgICAgICAic291cmNlIjogImh0dHA6Ly8xNzIuMjAuMi4xMTAvb2NwNC9ib290c3RyYXAuaWduIiwgCiAgICAgICAgICAidmVyaWZpY2F0aW9uIjoge30KICAgICAgICB9CiAgICAgIF0KICAgIH0sCiAgICAidGltZW91dHMiOiB7fSwKICAgICJ2ZXJzaW9uIjogIjMuMi4wIgogIH0sCiAgIm5ldHdvcmtkIjoge30sCiAgInBhc3N3ZCI6IHt9LAogICJzdG9yYWdlIjoge30sCiAgInN5c3RlbWQiOiB7fQp9Cg==
+
+  $ VM_NAME='bootstrap'
+  $ LIBRARY='rhcos'
+  $ TEMPLATE_NAME='rhcos-4.7.33'
+  $ govc library.deploy "${LIBRARY}/${TEMPLATE_NAME}" "${VM_NAME}"
+  $ govc vm.change -vm "${VM_NAME}" -e "disk.EnableUUID=TRUE"
+  $ govc vm.change -vm "${VM_NAME}" -e "guestinfo.ignition.config.data.encoding=base64"
+  $ govc vm.change -vm "${VM_NAME}" -e "guestinfo.ignition.config.data=${BOOTSTRAP_ENCODING_DATA}"
+  
+  bootstrap server ip 설정 reccommend
+  회사 Network을 사용하므로 설정 전에 ip 사용 check할 것
+  export IPCFG="ip=<ip>::<gateway>:<netmask>:<hostname>:<iface>:none nameserver=srv1 [nameserver=srv2 [nameserver=srv3 [...]]]"
+  $ export IPCFG="ip=172.20.2.253::172.20.0.1:255.255.252.0:::none nameserver=172.20.2.230"
+  $ govc vm.change -vm "${VM_NAME}" -e "guestinfo.afterburn.initrd.network-kargs=${IPCFG}"
+
+  $ govc vm.info -e "${VM_NAME}"
+  Name:           bootstrap
+  Path:         /Datacenter/vm/bootstrap
+  UUID:         421313a8-d3c7-c95e-a659-33602860fcdf
+  Guest name:   Red Hat Enterprise Linux 7 (64-bit)
+  Memory:       4096MB
+  CPU:          2 vCPU(s)
+  Power state:  poweredOff
+  Boot time:    <nil>
+  IP address:
+  Host:         172.20.2.225
+  ExtraConfig:
+    nvram:                                     bootstrap.nvram
+    svga.present:                              TRUE
+    pciBridge0.present:                        TRUE
+    pciBridge4.present:                        TRUE
+    pciBridge4.virtualDev:                     pcieRootPort
+    pciBridge4.functions:                      8
+    pciBridge5.present:                        TRUE
+    pciBridge5.virtualDev:                     pcieRootPort
+    pciBridge5.functions:                      8
+    pciBridge6.present:                        TRUE
+    pciBridge6.virtualDev:                     pcieRootPort
+    pciBridge6.functions:                      8
+    pciBridge7.present:                        TRUE
+    pciBridge7.virtualDev:                     pcieRootPort
+    pciBridge7.functions:                      8
+    hpet0.present:                             TRUE
+    viv.moid:                                  eeeae248-a22a-4b6c-9302-5c4eeb2397ff:vm-1185:OMrUqCf+ghxgq/C1LsmtICdy1DNySDH3dD7m7HxIkjo=
+    vmware.tools.internalversion:              0
+    vmware.tools.requiredversion:              11360
+    migrate.hostLogState:                      none
+    migrate.migrationId:                       0
+    migrate.hostLog:                           bootstrap-550274ea.hlog
+    guestinfo.ignition.config.data.encoding:   base64
+    guestinfo.ignition.config.data:            ewogICJpZ25pdGlvbiI6IHsKICAgICJjb25maWciOiB7CiAgICAgICJtZXJnZSI6IFsKICAgICAgICB7CiAgICAgICAgICAic291cmNlIjogImh0dHA6Ly8xNzIuMjAuMi4xMTAvb2NwNC9ib290c3RyYXAuaWduIiwgCiAgICAgICAgICAidmVyaWZpY2F0aW9uIjoge30KICAgICAgICB9CiAgICAgIF0KICAgIH0sCiAgICAidGltZW91dHMiOiB7fSwKICAgICJ2ZXJzaW9uIjogIjMuMi4wIgogIH0sCiAgIm5ldHdvcmtkIjoge30sCiAgInBhc3N3ZCI6IHt9LAogICJzdG9yYWdlIjoge30sCiAgInN5c3RlbWQiOiB7fQp9Cg==
+    disk.EnableUUID:                           TRUE
+    guestinfo.afterburn.initrd.network-kargs:  ip=172.20.2.50::172.20.0.1:255.255.252.0:::none nameserver=172.20.2.230
+
+  $ govc vm.power -on "${VM_NAME}"
