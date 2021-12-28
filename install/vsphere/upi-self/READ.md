@@ -306,3 +306,11 @@ ewogICJpZ25pdGlvbiI6IHsKICAgICJjb25maWciOiB7CiAgICAgICJtZXJnZSI6IFsKICAgICAgICB7
     guestinfo.afterburn.initrd.network-kargs:  ip=172.20.2.50::172.20.0.1:255.255.252.0:::none nameserver=172.20.2.230
 
   $ govc vm.power -on "${VM_NAME}"
+
+
+
+
+
+
+  csr 승인
+  oc get csr -o go-template='{{range .items}}{{if not .status}}{{.metadata.name}}{{"\n"}}{{end}}{{end}}' | xargs --no-run-if-empty oc adm certificate approve
