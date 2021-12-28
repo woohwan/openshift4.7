@@ -104,8 +104,6 @@ platform:
     defaultDatastore: datastore1 
     folder: "/Datacenter/vm/ocp4" 
 fips: false 
-pullSecret: '{"auths": ...}' 
-sshKey: 'ssh-ed25519 AAAA...' 
 -------------------------------------------------------------------------------------
 
     위 항목 중 datacenter, defaultDatastore, folder는 govc를 통해 정보를 얻거나 생성한다. (vSphere Client 사용 가능)
@@ -113,37 +111,45 @@ sshKey: 'ssh-ed25519 AAAA...'
 
     $ govc folder.create $dc/vm/ocp4
 
-    pullSecret은 https://console.redhat.com/openshift/install/pull-secret 에서 copy & paste
-    sshKey는
-    $ cat .ssh/id_rsa.pub;echo
-    ssh-rsa ~
+  ### Add the registry pull-secret
+    your pullSecret should now be your pull secret file of your internal registry only.
+    $ REG_SECRET=`echo -n 'admin:passw0rd' | base64 -w0`
+    $ echo -n "pullSecret: '" >> install-config.yaml && echo '{ "auths": {}}' | jq '.auths += {"registry.setve-ml.net:8443": {"auth": "REG_SECRET","email": "whpark@saltware.co.kr"}}' | sed "s/REG_SECRET/$REG_SECRET/" | jq -c . | sed "s/$/\'/g" >> install-config.yaml
 
-    output을 copy & paste
+  ### Attach the ssh key
+    $ echo -n "sshKey: '" >> install-config.yaml && cat ~/.ssh/id_rsa.pub | sed "s/$/\'/g" >> install-config.yaml
 
-위 install-config 파일에 mirror registry에 관련된 additionalTrustBundle  및 imageContentSources를 추가한다.
-quay-mirror 설치 참고 ( https://github.com/quay/openshift-mirror-registry )
+    
 
-mirror resgtry로 부터 ssl.cert (Quay mirro)를 복사
-$ scp root@quay:certs/ssl.cert .
+  위 install-config 파일에 mirror registry에 관련된 additionalTrustBundle  및 imageContentSources를 추가한다.
+  quay-mirror 설치 참고 ( https://github.com/quay/openshift-mirror-registry )
 
-additionalTrustBundle 항목 추가
-$ echo "additionalTrustBundle: |" >> ocp4/install-config.yaml
-$ cat certs/ssl.cert |sed 's/^/\ \ /g' >> ocp4/install-config.yaml
+  ### Adding the Registry CA
+  quay mirror registry에 사용된 ca 인증서 즉. ZeroSSL의 ca_bundle.crt 사용
+  When we update the custom CA , we need to make sure we are using the right indentation which means 5 spaces from the left.
+  
+  additionalTrustBundle 항목 추가
+  $ echo "additionalTrustBundle: |" >> install-config.yaml
+  $ cat ca_bundle.crt | sed 's/^/\ \ \ \ \ /g' >> install-config.yaml
 
-imageContentSources:
-- mirrors:
-  - registry.steve-ml.net:8443/ocp4/openshift4
-  source: quay.io/openshift-release-dev/ocp-release
-- mirrors:
-  - registry.steve-ml.net:8443/ocp4/openshift4
-  source: quay.io/openshift-release-dev/ocp-v4.0-art-dev
+  ### Adding the "imageContentSources" extentsion
+  $ cat ${REGISTRY_BASE}/downloads/secrets/mirror-output.txt | grep -A7 imageContentSources >> install-config.yaml
+
+
+  imageContentSources:
+  - mirrors:
+    - registry.steve-ml.net:8443/ocp4/openshift4
+    source: quay.io/openshift-release-dev/ocp-release
+  - mirrors:
+    - registry.steve-ml.net:8443/ocp4/openshift4
+    source: quay.io/openshift-release-dev/ocp-v4.0-art-dev
 
 
 
     4.3.4 Creating the Kubernetes manifest and Ignition config files
     $ openshift-install create manifests --dir ocp4/
 
-### Configuring chrony time service
+  ### Configuring chrony time service
   Create the contents of the chrony.conf file and encode it as base64.
   $ cat << EOF | base64
     pool 0.rhel.pool.ntp.org iburst 

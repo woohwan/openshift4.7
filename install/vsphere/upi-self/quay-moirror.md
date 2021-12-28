@@ -172,12 +172,12 @@ $ cat $REG_CREDS # quay auth파일과 동일
 사용해서 된다. 그렇지 않으면 인증에러 발생.
 여기서는 간단하게 위에서 만든 merged-pullsecret.json 사용
 
-oc adm catalog mirror \
-registry.redhat.io/redhat/redhat-operator-index:v4.7 \
-file://local/index \
--a ~/secrets/merged-pullsecret.json
+$ nohup oc adm catalog mirror \ 
+registry.redhat.io/redhat/redhat-operator-index:v4.7  \ 
+file://local/index -a ~/secrets/merged-pullsecret.json \ 
+2>1 >>  ~/logs/catalog-mirror-output.log &
 
-초기에 아무런 response가 없을 정도로 느리게 진행됨.
+최소 4~5시간 걸리는 작업이므로 background 로 수행한다.
 mirroring location은 workding directory 아래 v2 dir.
 
 
