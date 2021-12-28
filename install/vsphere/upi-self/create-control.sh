@@ -48,7 +48,7 @@ for VM_NAME in ${!VM_IP_MAP[@]}; do
         govc vm.change -vm "${VM_NAME}" -e "guestinfo.ignition.config.data=${IGN_ENCODING}"
   
         echo "Chnaging  IP Addr of ${VM_NAME}"
-        IPCFG="ip='${VM_IP_MAP[$VM_NAME]}'::172.20.0.1:255.255.252.0:boostrap.ocp4.steve-ml.net::none nameserver=172.20.2.230"
+        IPCFG="ip=${VM_IP_MAP[$VM_NAME]}::172.20.0.1:255.255.252.0:boostrap.ocp4.steve-ml.net::none nameserver=172.20.2.230"
 
         govc vm.change -vm "${VM_NAME}" -e "guestinfo.afterburn.initrd.network-kargs=${IPCFG}"
 
