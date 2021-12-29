@@ -307,10 +307,24 @@ ewogICJpZ25pdGlvbiI6IHsKICAgICJjb25maWciOiB7CiAgICAgICJtZXJnZSI6IFsKICAgICAgICB7
 
   $ govc vm.power -on "${VM_NAME}"
 
+  5. Cluster 구성
+  3개의 script를 통해 각 vm들을 기동시킨다. (craete_bootstrap.sh, create-controls.sh, create-computes.sh)
+  
+  아래 과정을 통해 설치 확인
 
+    5.1 각 Node 상태 확인
+    $ oc get nodes
 
+    Node가 Ready로 변경 되지 않을 경우 CSR 확인
+    5.2 csr 승인
+    $ oc get csr -o go-template='{{range .items}}{{if not .status}}{{.metadata.name}}{{"\n"}}{{end}}{{end}}' | xargs --no-run-if-empty oc adm certificate approve
 
+    5.3 Cluster Operator 및 Version 확인
+    $ oc get co
+    $ oc get ClusterVersion
 
+    정상 작동시 Chrony Service 가 추가 (설치시 구성하지 않았을 경우)
 
-  csr 승인
-  oc get csr -o go-template='{{range .items}}{{if not .status}}{{.metadata.name}}{{"\n"}}{{end}}{{end}}' | xargs --no-run-if-empty oc adm certificate approve
+  아래 과정은 Operator Hub을 구성하기 위한 과정입니다.
+  6. Disabling the default OperatorHub sources
+  oc patch OperatorHub cluster --type json -p '[{"op": "add", "path": "/spec/disableAllDefaultSources", "value": true}]'

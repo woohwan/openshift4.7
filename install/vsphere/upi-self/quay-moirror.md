@@ -165,6 +165,7 @@ ${LOCAL_REGISTRY}/${LOCAL_REPOSITORY} \
 2>&1 | tee secrets/mirror-upload-output.txt
 
 
+9. Imaage Catalog download  ==> 필요한 catalog만 pruning 해서 할 것. (#10)
 $ REG_CREDS=${XDG_RUNTIME_DIR}/containers/auth.json
 $ cat $REG_CREDS # quay auth파일과 동일
 
@@ -179,6 +180,36 @@ file://local/index -a ~/secrets/merged-pullsecret.json \
 
 최소 4~5시간 걸리는 작업이므로 background 로 수행한다.
 mirroring location은 workding directory 아래 v2 dir.
+
+10. Image Catalog Upload to local mirror registry
+under V2 parent directory
+$ oc adm catalog mirror file://local/index/redhat/redhat-operator-index:v4.7 registry.steve-ml.net:8443/olm-mirror -a ~/secretes/local-pullseret.json 2>1 > ~/logs/catalog-up-registry.log &
+
+3 개 파일 생성됨
+- catalogSource.yaml:  metadata.name 에 any backslash 제거할 것
+- imageContentSourcePolicy.yaml
+- mapping.txt
+
+11. apply catalog to cluster
+ImageContentSourcePolicy (ICSP) 생성
+$ oc create -f <path/to/manifests/dir>/imageContentSourcePolicy.yaml
+
+Image Index에서 Operator Catalog를 생성하고, 이것을 OCP에 적용
+generated catalogSource.yaml 수정 또는 생성
+metadata.name 에 backslash 제거
+-----
+apiVersion: operators.coreos.com/v1alpha1
+kind: CatalogSource
+metadata:
+  name: my-operator-catalog
+  namespace: openshift-marketplace
+spec:
+  image: registry.steve-ml.net:8443/olm-mirror/local-index-redhat-redhat-operator-index:v4.7
+  sourceType: grpc
+  displayName: My Operator Catalog
+-------------------------------------------
+
+
 
 
 
