@@ -1,5 +1,5 @@
 1. 모듈 설치
-  $ dnf install -y nsf-utils
+  $ dnf install -y nfs-utils
 
 2. Server 설정
   $ mkdir -p /nfs/registry
