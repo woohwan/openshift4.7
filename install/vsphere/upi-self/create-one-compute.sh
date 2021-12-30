@@ -1,9 +1,10 @@
 #!/bin/bash
 
-# Create Control Plane
+# Create Compute Node VM
+
 LIBRARY="rhcos"
 TEMPLATE_NAME="rhcos-4.7.33"
-BASE64_IGN_LOCATION="/root/ocp4/master.64"
+BASE64_IGN_LOCATION="/root/ocp4/worker.64"
 VM_FOLDER="ocp4"
 
 function check_exit_code() {
@@ -17,6 +18,7 @@ function check_exit_code() {
         fi
 }
 
+# 생성하려는 VM 이름, IP를 입력한다.
 read -p "Insert VM Name: " VM_NAME
 read -p "Insert IP Address: " IP_ADDR
 
@@ -32,7 +34,7 @@ check_exit_code $? "Cannot create Control Plane VM"
 IGN_ENCODING=$(cat "${BASE64_IGN_LOCATION}";echo)
 
 echo "Chnaging  Spec & Env vars of ${VM_NAME}"
-govc vm.change -vm "${VM_NAME}" -c=4 -m=16384
+govc vm.change -vm "${VM_NAME}" -c=4 -m=8192
 
 govc vm.disk.change -vm "${VM_NAME}" -size 120G
 govc vm.change -vm "${VM_NAME}" -e "disk.EnableUUID=TRUE"
