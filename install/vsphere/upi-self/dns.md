@@ -1,9 +1,8 @@
-steve-ml.net의 Host Zone에 관련 node 등록
-ocp 4.4 이상부터는 etcd SRV 등록이 필요 없음.
-( 참고: https://access.redhat.com/solutions/5309701
+steve-ml.net의 Host Zone에 관련 node 등록  
+ocp 4.4 이상부터는 etcd SRV 등록이 필요 없음.  
+( 참고: https://access.redhat.com/solutions/5309701 )  
 
-
-
+```
 ; The api identifies the IP of your load balancer.
 api.ocp4		    300     IN	    A   172.20.2.228	
 api-int.ocp4		300     IN	    A	172.20.2.228
@@ -41,3 +40,4 @@ cptnod1.ocp4        300     IN      A   172.20.2.246
 245	    300     IN	    PTR	    cptnod0.ocp4.steve-ml.net.
 246	    300     IN	    PTR	    cptnod1.ocp4.steve-ml.net.
 ;
+```

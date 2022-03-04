@@ -1,6 +1,7 @@
-/etc/named.conf 수정
+/etc/named.conf 수정  
 
-[root@dns ~]# cat /etc/named.conf
+[root@dns ~]# cat /etc/named.conf  
+```
 //
 // named.conf
 //
@@ -64,11 +65,9 @@ zone "." IN {
 
 include "/etc/named.rfc1912.zones";
 include "/etc/named.root.key";
-
------------------------------------------------------------------
-
-/etc/named.rfc1912.zones 에 아래 내용 추가
-
+```  
+/etc/named.rfc1912.zones 에 아래 내용 추가  
+```
 zone "saltware.lab" IN {
         type master;
         file "saltware.lab.zone";
@@ -80,10 +79,9 @@ zone "2.20.172.in-addr.arpa" IN {
         file "172.20.2.rev";
         allow-update { none; };
 };
-
--------------------------------------------------------------------------
-
-zone file
+```  
+zone file  
+```
 [root@dns ~]# cat /var/named/saltware.lab.zone
 $TTL 3H
 @       IN SOA  @ admin.saltware.lab. (
@@ -96,8 +94,9 @@ $TTL 3H
         A       172.20.2.230
 ; NCSA - A record
 vcsa    IN      A       172.20.2.240
+```
 
--------------------------------------------------------------------
+```
 [root@dns ~]# cat /var/named/172.20.2.rev
 $TTL    604800
 @       IN      SOA     @ admin.saltware.lab. (
@@ -117,3 +116,4 @@ $TTL    604800
 
 ; VCSA - PTR record
 240     IN      PTR     vcsa.saltware.lab.
+```
