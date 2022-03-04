@@ -31,6 +31,7 @@ vCenter domain은 내부 DNS를 사용하므로, dns는 172.20.2.230을 사용�
   ```
   4.1 SSH Private Key 생성 및 SSH-Agent에 추가   
     4.1.1 private key 생성   
+ 
     (passphrase: just Enter)    
     Generating public/private rsa key pair.  
     Enter file in which to save the key (/root/.ssh/id_rsa):  
@@ -39,21 +40,7 @@ vCenter domain은 내부 DNS를 사용하므로, dns는 172.20.2.230을 사용�
     Enter same passphrase again:  
     Your identification has been saved in /root/.ssh/id_rsa.  
     Your public key has been saved in /root/.ssh/id_rsa.pub.  
-    The key fingerprint is:  
-    SHA256:yq32R3wcq/q/k5AqGMSt67MmnHCgZefhT/VZqE3s3AI root@bastion.ocp4.steve-ml.net  
-    The key's randomart image is:  
-    +---[RSA 3072]----+  
-    |                 |  
-    |                 |  
-    |   . .   . .     |   
-    |. o = . E + o    |  
-    |.+ = o .SX * o   |  
-    |o . =..o. % =    |  
-    | + . *o .o = .   |  
-    |  + = +.. o o    |   
-    |   +o+.oo+..oo   |
-    +----[SHA256]-----+  
-  
+ 
     4.1.2 ssh-agent를 background로 수행  
     ```
     $ eval "$(ssh-agent -s)"
