@@ -6,7 +6,7 @@ cluster name: ocp4
 구성 순서  
 1. DNS: AWS Route53 domain: steve-ml.net  
 2. Load Balancer 구성 ( CentOS 8)  
-  - ipo: 172.20.2.228,   
+  - ip: 172.20.2.228,   
   - host name: lb.ocp4  
   - software: HAproxy  
     향후  HA로 구성할 경우, 228. 229 사용  
@@ -19,28 +19,8 @@ vCenter domain은 내부 DNS를 사용하므로, dns는 172.20.2.230을 사용�
 나중에 domain을 동잏하게 하기 위해 vCenter 설치 시 vcsa.steve-ml.net로 변경할 것 (AWS Route53 사용가능 시)  
 230번의 named 구성 참고.  
 
-<<<<<<< HEAD
-구성 순서
-1. DNS: AWS Route53 domain: steve-ml.net
-2. Load Balancer 구성 ( CentOS 8)
-  - ip: 172.20.2.228, 
-  - host name: lb.ocp4
-  - software: HAproxy
-    향후  HA로 구성할 경우, 228. 229 사용
-3. DHCP 구성
-회사 DHCP를 수정할 수 없으므로, RHCOS OVA의 vm template을 static ip 사용
-node-map-ip.md 참조
-
-4. Bastion 구성 (CentOS 8)
-vCenter domain은 내부 DNS를 사용하므로, dns는 172.20.2.230을 사용한다.
-나중에 domain을 동잏하게 하기 위해 vCenter 설치 시 vcsa.steve-ml.net로 변경할 것 (AWS Route53 사용가능 시)
-230번의 named 구성 참고.
-
-  aws Route53에 등록된 record nslookup 확인
-=======
   aws Route53에 등록된 record nslookup 확인  
   ```
->>>>>>> 68ac065bfd8e5a5e5aef610c6a64f8d29e4ebe4f
   [root@bastion ~]# nslookup api.ocp4.steve-ml.net
   Server:         172.20.2.230
   Address:        172.20.2.230#53
@@ -118,20 +98,12 @@ govc는 govc-tip을 참고할 것
 
 $ govc folder.create $dc/vm/ocp4
 
-<<<<<<< HEAD
   ### Add the registry pull-secret
     your pullSecret should now be your pull secret file of your internal registry only.  
     ```
     $ REG_SECRET=`echo -n 'admin:passw0rd' | base64 -w0`
     $ echo -n "pullSecret: '" >> install-config.yaml && echo '{ "auths": {}}' | jq '.auths += {"registry.setve-ml.net:8443": {"auth": "REG_SECRET","email": "whpark@saltware.co.kr"}}' | sed "s/REG_SECRET/$REG_SECRET/" | jq -c . | sed "s/$/\'/g" >> install-config.yaml
     ```
-=======
-### Add the registry pull-secret
-your pullSecret should now be your pull secret file of your internal registry only.
-$ REG_SECRET=`echo -n 'admin:passw0rd' | base64 -w0`
-$ echo -n "pullSecret: '" >> install-config.yaml && echo '{ "auths": {}}' | jq '.auths += {"registry.setve-ml.net:8443": {"auth": "REG_SECRET","email": "whpark@saltware.co.kr"}}' | sed "s/REG_SECRET/$REG_SECRET/" | jq -c . | sed "s/$/\'/g" >> install-config.yaml
->>>>>>> 68ac065bfd8e5a5e5aef610c6a64f8d29e4ebe4f
-
 ### Attach the ssh key
 `$ echo -n "sshKey: '" >> install-config.yaml && cat ~/.ssh/id_rsa.pub | sed "s/$/\'/g" >> install-config.yaml`   
    
@@ -139,7 +111,7 @@ $ echo -n "pullSecret: '" >> install-config.yaml && echo '{ "auths": {}}' | jq '
 위 install-config 파일에 mirror registry에 관련된 additionalTrustBundle  및 imageContentSources를 추가한다.  
 quay-mirror 설치 참고 ( https://github.com/quay/openshift-mirror-registry )  
 
-### ● Adding the Registry CA  
+### Adding the Registry CA  
 quay mirror registry에 사용된 ca 인증서 즉. ZeroSSL의 ca_bundle.crt 사용  
 When we update the custom CA , we need to make sure we are using the right indentation which means 5 spaces from the left.  
 
