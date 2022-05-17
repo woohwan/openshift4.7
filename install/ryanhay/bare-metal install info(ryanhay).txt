@@ -1,47 +1,43 @@
-Machine				Type			OS				vCPU	RAM		Storage		IP Address	Mac   : OCP Network
+```
+Machine				    Type			OS				vCPU	RAM		Storage		IP Address	Mac   : OCP Network
 --------------------------------------------------------------------------------------------------------------------
 ocp-bootstrap			Bootstrap	Fedora CoreOS	4		16		100			192.168.22.200	00:50:56:3c:0a:3d
-ocp-cp-1			Master			Fedora CoreOS	4		16		100			192.168.22.201	00:50:56:2e:f7:e3
-ocp-cp-2			Master			Fedora CoreOS	4		16		100			192.168.22.202	00:50:56:25:eb:d6
-ocp-cp-3			Master			Fedora CoreOS	4		16		100			192.168.22.203	00:50:56:1a:26:f6
-ocp-w-1				Worker			Fedora CoreOS	4		16		100			192.168.22.211	00:50:56:26:a5:df
-ocp-w-2				Worker			Fedora CoreOS	4		16		100			192.168.22.212	00:50:56:03:63:00
+ocp-cp-1			    Master			Fedora CoreOS	4		16		100			192.168.22.201	00:50:56:2e:f7:e3
+ocp-cp-2			    Master			Fedora CoreOS	4		16		100			192.168.22.202	00:50:56:25:eb:d6
+ocp-cp-3			    Master			Fedora CoreOS	4		16		100			192.168.22.203	00:50:56:1a:26:f6
+ocp-w-1				    Worker			Fedora CoreOS	4		16		100			192.168.22.211	00:50:56:26:a5:df
+ocp-w-2				    Worker			Fedora CoreOS	4		16		100			192.168.22.212	00:50:56:03:63:00
+```
 
-ocp-svc				DNS/LB/Web/NFS		CentOS		4	4	100		192.168.22.1	00:50:56:0a:17:c8
----------------------------------------------------------------------------------------------------------------------------
-ocp-svc				DNS/LB/Web/NFS		CentOS		4	4	100		172.20.2.210	00:0c:29:01:d8:56			VM Network
-
-
-
-guest.ignition.config.data	master.64파일 내용
-guest.ignition.config.data.encoding	base64
-disk.EnableUUID	TRUE
+ocp-svc				DNS/LB/Web/NFS		CentOS		4	4	100		192.168.22.1	00:50:56:0a:17:c8  
+---------------------------------------------------------------------------------------------------------------------------  
+ocp-svc				DNS/LB/Web/NFS		CentOS		4	4	100		172.20.2.210	00:0c:29:01:d8:56			VM Network  
 
 
-# Bootstrap Node - ocp-bootstrap
-coreos.inst.install_dev=sda coreos.inst.image_url=http://192.168.22.1:8080/ocp4/rhcos coreos.inst.insecure=yes coreos.inst.ignition_url=http://192.168.22.1:8080/ocp4/bootstrap.ign
+guest.ignition.config.data	master.64파일 내용  
+guest.ignition.config.data.encoding	base64  
+disk.EnableUUID	TRUE  
 
+# Bootstrap Node - ocp-bootstrap  
+coreos.inst.install_dev=sda coreos.inst.image_url=http://192.168.22.1:8080/ocp4/rhcos coreos.inst.insecure=yes coreos.inst.ignition_url=http://192.168.22.1:8080/ocp4/bootstrap.ign  
 
-
-
-
+```
 nameserver=192.168.1.210
 coreos.inst.install_dev=sda
 coreos.inst.image_url=http://192.168.1.210:8080/okd4/fcos.raw.xz
 coreos.inst.ignition_url=http://192.168.1.210:8080/okd4/bootstrap.ign
 coreos.inst.insecure=yes
 
-
 ip=192.168.1.201::192.168.1.1:255.255.255.0:master0.lab.okd.local:ens192:none
 nameserver=192.168.1.210
 coreos.inst.install_dev=sda
 coreos.inst.image_url=http://192.168.1.210:8080/okd4/fcos.raw.xz
 coreos.inst.ignition_url=http://192.168.1.210:8080/okd4/master.ign --insecure-ignition
+```
 
+watch 'echo "show stat" | nc -U /var/lib/haproxy/stats | cut -d "," -f 1,2,5-11,18,24,27,30,36,50,37,56,57,62 | column -s, -t'  
 
-watch 'echo "show stat" | nc -U /var/lib/haproxy/stats | cut -d "," -f 1,2,5-11,18,24,27,30,36,50,37,56,57,62 | column -s, -t'
-
-https://onlinerandomtools.com/generate-random-mac
+https://onlinerandomtools.com/generate-random-mac  
 
 
 
