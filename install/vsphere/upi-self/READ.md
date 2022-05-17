@@ -8,7 +8,7 @@ cluster name: ocp4
 구성 순서
 1. DNS: AWS Route53 domain: steve-ml.net
 2. Load Balancer 구성 ( CentOS 8)
-  - ipo: 172.20.2.228, 
+  - ip: 172.20.2.228, 
   - host name: lb.ocp4
   - software: HAproxy
     향후  HA로 구성할 경우, 228. 229 사용
@@ -112,9 +112,11 @@ fips: false
     $ govc folder.create $dc/vm/ocp4
 
   ### Add the registry pull-secret
-    your pullSecret should now be your pull secret file of your internal registry only.
+    your pullSecret should now be your pull secret file of your internal registry only.  
+    ```
     $ REG_SECRET=`echo -n 'admin:passw0rd' | base64 -w0`
     $ echo -n "pullSecret: '" >> install-config.yaml && echo '{ "auths": {}}' | jq '.auths += {"registry.setve-ml.net:8443": {"auth": "REG_SECRET","email": "whpark@saltware.co.kr"}}' | sed "s/REG_SECRET/$REG_SECRET/" | jq -c . | sed "s/$/\'/g" >> install-config.yaml
+    ```
 
   ### Attach the ssh key
     $ echo -n "sshKey: '" >> install-config.yaml && cat ~/.ssh/id_rsa.pub | sed "s/$/\'/g" >> install-config.yaml
