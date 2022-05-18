@@ -62,7 +62,7 @@ $ systemctl status haproxy
 # haproxy log 회전주기 수정
 ```
 $ vi /etc/logrotate.d/haproxy 
-{
+/var/log/haproxy.log  {
     daily
     rotate 10
     create 0644 nobody nobody
@@ -125,9 +125,9 @@ port 오픈: 6443, 22623, 80, 443
 $ firewall-cmd --get-default-zone
 public
 
-$ firewall-cmd --permanent --add-port={80/tcp,443/tcp,6443/tcp,22623/tcp}
+$ firewall-cmd --permanent --add-port={80/tcp,443/tcp,9000/tcp,6443/tcp,22623/tcp}
 $ firewall-cmd --reload
-$ fireeall-cmd --list-ports
+$ firewall-cmd --list-ports
 80/tcp 443/tcp 6443/tcp 22623/tcp
 ```
 

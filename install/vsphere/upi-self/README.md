@@ -31,7 +31,7 @@ vCenter domain은 내부 DNS를 사용하므로, dns는 172.20.2.230을 사용�
   ```
   4.1 SSH Private Key 생성 및 SSH-Agent에 추가   
     4.1.1 private key 생성   
- 
+    $ ssh-keygen
     (passphrase: just Enter)    
     Generating public/private rsa key pair.  
     Enter file in which to save the key (/root/.ssh/id_rsa):  
