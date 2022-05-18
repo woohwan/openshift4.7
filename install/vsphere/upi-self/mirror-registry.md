@@ -397,7 +397,11 @@ update-ca-trust extract
 ```  
 
 # Deploying the cluster  
+vCenter에 cluster가 구성되어 있어야 한다.: cluster 구성 후 host 추가  
+( cluster 구성도: vcsa.steve-ml.net -> Datacenter -> mycluster -> host )  
 
+1. install-config file 생성
+   
 
 
 
