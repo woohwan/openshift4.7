@@ -3,8 +3,15 @@
 
 # Configure Bastion VM  
 1. set an environment variable  
-```export OCP_RELEASE=4.10.13```   
-2. Download and extract the OpenShift CLI, or oc client, to your bastion  
+```  
+export OCP_RELEASE=4.10.13
+```   
+2. create working directory. 
+```
+mkdir $disconnected
+```  
+   
+3. Download and extract the OpenShift CLI, or oc client, to your bastion  
 ```wget https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$OCP_RELEASE/openshift-client-linux-$OCP_RELEASE.tar.gz```  
 3. extract it to a location that will make it easy to use.  
 ```  
@@ -235,16 +242,16 @@ curl -u openshift:redhat https://registry.steve-ml.net:5000/v2/_catalog
 
 3.4 You can only use one pull secret when mirroring the images to your local container registry as well as when you install OpenShift, so you need to merge the pull secrets you created in the previous two steps into a single json file named merged_pullsecret.json. Remember that you created your pullsecret_config.json in step 3.4.  
 ```  
-jq -c --argjson var "$(jq .auths $HOME/pullsecret_config.json)" '.auths += $var' $HOME/ocp_pullsecret.json > merged_pullsecret.json
+jq -c --argjson var "$(jq .auths $HOME/pullsecret_config.json)" '.auths += $var' $HOME/ocp_pullsecret.json > $HOME/merged_pullsecret.json
 
-jq . merged_pullsecret.json
+jq . $HOME/merged_pullsecret.json
 ```  
 3.5 Set the following environment variables.   
 ```   
 export OCP_RELEASE=4.10.13
 export LOCAL_REGISTRY=registry.steve-ml.net:5000
 export LOCAL_REPOSITORY=ocp4/openshift4
-export LOCAL_SECRET_JSON=merged_pullsecret.json
+export LOCAL_SECRET_JSON=$HOME/merged_pullsecret.json
 export PRODUCT_REPO=openshift-release-dev
 export RELEASE_NAME=ocp-release
 export ARCHITECTURE=x86_64
@@ -256,3 +263,150 @@ oc adm -a ${LOCAL_SECRET_JSON} release mirror \
    --to=${LOCAL_REGISTRY}/${LOCAL_REPOSITORY} \
    --to-release-image=${LOCAL_REGISTRY}/${LOCAL_REPOSITORY}:${OCP_RELEASE}-${ARCHITECTURE}
 ```     
+  Make note of the output. You will need to use the imageContentSources in the next sectio  
+
+3.7 To verify that all the images are indeed available in your container registry, try pulling one. Note that you’ll have to provide your authfile since you are not logged in to the container registry with podman  
+'''
+podman pull --authfile $HOME/pullsecret_config.json registry.steve-ml.net:5000/ocp4/openshift4:$OCP_RELEASE-$ARCHITECTURE-operator-lifecycle-manager
+'''  
+Sample Output
+```   
+Trying to pull registry.steve-ml.net:5000/ocp4/openshift4:4.10.13-x86_64-operator-lifecycle-manager...
+Getting image source signatures
+Copying blob da5839e0efa1 done
+Copying blob 67c4675a80ba done
+Copying blob 39382676eb30 done
+Copying blob 237bfbffb5f2 done
+Copying blob 63fa182ce8dd done
+Copying config 0b48c5c2fd done
+Writing manifest to image destination
+Storing signatures
+0b48c5c2fd1c334d0ddb905a031f49f4b6186df84227fb29a76d061d5bb03a32   
+```  
+3.8 Make sure the new image shows up in your local image storage on the bastion  
+```podman images```  
+```  
+REPOSITORY                                  TAG                                        IMAGE ID      CREATED      SIZE
+registry.steve-ml.net:5000/ocp4/openshift4  4.10.13-x86_64-operator-lifecycle-manager  0b48c5c2fd1c  3 weeks ago  646 MB
+```  
+3.9 Take a minute to verify the version information you have downloaded. Again, you can use the oc adm release command.  
+```  
+oc adm release info -a ${LOCAL_SECRET_JSON} "${LOCAL_REGISTRY}/${LOCAL_REPOSITORY}:${OCP_RELEASE}-${ARCHITECTURE}" | head -n 18  
+```  
+Sample Output  
+```  
+Name:      4.10.13
+Digest:    sha256:4f516616baed3cf84585e753359f7ef2153ae139c2e80e0191902fbd073c4143
+Created:   2022-05-04T14:43:42Z
+OS/Arch:   linux/amd64
+Manifests: 542
+
+Pull From: registry.steve-ml.net:5000/ocp4/openshift4@sha256:4f516616baed3cf84585e753359f7ef2153ae139c2e80e0191902fbd073c4143
+
+Release Metadata:
+  Version:  4.10.13
+  Upgrades: 4.9.19, 4.9.21, 4.9.22, 4.9.23, 4.9.24, 4.9.25, 4.9.26, 4.9.27, 4.9.28, 4.9.29, 4.9.30, 4.9.31, 4.9.32, 4.10.3, 4.10.4, 4.10.5, 4.10.6, 4.10.7, 4.10.8, 4.10.9, 4.10.10, 4.10.11, 4.10.12
+  Metadata:
+    url: https://access.redhat.com/errata/RHBA-2022:1690
+
+Component Versions:
+  kubernetes 1.23.5
+  machine-os 410.84.202204291735-0 Red Hat Enterprise Linux CoreOS
+  ```  
+
+3.10 You can compare this information with what you would get from doing a connected install. Run the same command, but point it to the Red Hat repositories hosted on quay.io. Except for the "Pull From" line, this should look identical to your output above.  
+```  
+oc adm release info -a ${LOCAL_SECRET_JSON} "quay.io/${PRODUCT_REPO}/${RELEASE_NAME}:${OCP_RELEASE}-${ARCHITECTURE}" | head -n 18  
+```
+  위와 동일한지 확인  
+
+# Prepare Installation artifact  
+## Obtaining the installation program  
+1. On your bastion, run the following command. This will extract the openshift-install binary from images you have already mirrored. The openshift-install binary will then exist and be executable on your bastion. This ensures you have a version of the installer that matches the payload and images your downloaded  
+```  
+oc adm release extract -a ${LOCAL_SECRET_JSON} --command=openshift-install "${LOCAL_REGISTRY}/${LOCAL_REPOSITORY}:${OCP_RELEASE}-${ARCHITECTURE}"  
+```    
+  openshift-install command 확인  
+
+2. Copy this file to a location that is in your $PATH and will make it easier to use.  
+```  
+sudo mv openshift-install /usr/local/sbin
+```  
+
+3. Validate that your openshift-install is executable and that you are running an expected version pulled from an expected location.  
+```  
+openshift-install version
+```  
+Sample Output  
+openshift-install 4.10.13
+built from commit ed025ee9ca62dd3fb7f7f7eaff9c90fd1a011fe2
+release image registry.steve-ml.net:5000/ocp4/openshift4@sha256:4f516616baed3cf84585e753359f7ef2153ae139c2e80e0191902fbd073c4143   
+
+4. Now that you have the installer, you are ready to begin continuing the preparation for your installation.  
+   
+## Generating a key pair for cluster node SSH access  
+1. To use for authentication onto your cluster nodes, create SSH key pair
+```  
+ssh-keygen -t ed25519
+```  
+2. View the public SSH key  
+```
+cat ~/.ssh/id_ed25519.pub  
+```  
+3. Add the SSH private key identity to the SSH agent  
+```
+eval "$(ssh-agent -s)"
+```  
+Sample Output
+Agent pid 31874
+4.  Add your SSH private key to the ssh-agent  
+```  
+ssh-add
+```  
+Sample Output
+Identity added: /home/<you>/<path>/<file_name> (<computer_name>)  
+
+## Adding vCenter root CA certificates to your system trust  
+1. From the vCenter home page, download the vCenter’s root CA certificates. Click Download trusted root CA certificates in the vSphere Web Services SDK section. The <vCenter>/certs/download.zip file downloads.  
+```
+wget vcsa.steve-ml.net/certs/download.zip  
+```  
+2. Extract the compressed file that contains the vCenter root CA certificates. The contents of the compressed file resemble the following file structure:  
+```  
+unzip download.zip  
+tree certs
+```  
+certs/
+├── lin
+│   ├── b1dd9126.0
+│   └── b1dd9126.r1
+├── mac
+│   ├── b1dd9126.0
+│   └── b1dd9126.r1
+└── win
+    ├── b1dd9126.0.crt
+    └── b1dd9126.r1.crl   
+
+3. Add the files for your operating system to the system trust. For example, on a Fedora operating system, run the following command  
+```  
+cp certs/lin/* /etc/pki/ca-trust/source/anchors  
+```  
+4. Update your system trust. For example, on a Fedora operating system, run the following command  
+```  
+update-ca-trust extract  
+```  
+
+# Deploying the cluster  
+
+
+
+
+
+
+
+
+
+
+
+
+

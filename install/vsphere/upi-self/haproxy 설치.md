@@ -61,7 +61,7 @@ $ systemctl status haproxy
 
 # haproxy log 회전주기 수정
 ```
-$ vi /var/log/haproxy.log 
+$ vi /etc/logrotate.d/haproxy 
 {
     daily
     rotate 10
