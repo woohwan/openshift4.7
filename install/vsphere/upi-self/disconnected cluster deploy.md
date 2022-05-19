@@ -588,7 +588,7 @@ base64 -w0 master.ign > master.64
 base64 -w0 worker.ign > worker.64
 ```  
 
-
+cd ..
 BOOTSTRAP_ENCODING_DATA=$(cat config/merge-bootstrap.64;echo;)
 echo $BOOTSTRAP_ENCODING_DATA
 
@@ -615,7 +615,7 @@ ssh -i <path_to_private_SSH_key> core@<bootstrap_ip>
 journalctl -b -f -u release-image.service -u bootkube.service
 
 
-x509: certificate has expired or is not yet valid: current time 2022-05-19T04:38:58Z is before 2022-05-19T10:15:07Z  --> https://access.redhat.com/solutions/6339541
+x509: certificate has expired or is not yet valid: current time 2022-05-19T04:38:58Z is before 2022-05-19T10:15:07Z  --> https://access.redhat.com/solutions/6339541  : ntp 맞추줄 것. hardware
 
 6443 connection refused  --> bootstrap이 완전이 올라올때 까지 기다릴 것
 
