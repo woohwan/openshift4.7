@@ -1,4 +1,5 @@
 ### 이 문서는 redhat partner portal의 ocp4 disconnected deployment를 재작성한 것임.  
+참고: https://docs.openshift.com/container-platform/4.10/installing/installing_vsphere/installing-restricted-networks-vsphere.html  
 
 
 # Configure Bastion VM  
@@ -400,11 +401,222 @@ update-ca-trust extract
 vCenter 설치 시 cluster 구성 후 host 추가  
 ( cluster 구성도: vcsa.steve-ml.net -> Datacenter -> mycluster -> host )  
 
-1. install-config file 생성
-   
+## Configruation file 생성 및 수정
+1. install-config file 생성  
+```  
+cd $HOME/disconnected
+mkdir config
+openshift-install create install-config --dir config 
+```   
+```  
+? SSH Public Key /root/.ssh/id_rsa.pub
+? Platform vsphere
+? vCenter vcsa.steve-ml.net
+? Username administrator@vsphere.local
+? Password [? for help] **********
+INFO Connecting to vCenter vcsa.steve-ml.net
+INFO Defaulting to only available datacenter: Datacenter
+INFO Defaulting to only available cluster: mycluster
+INFO Defaulting to only available datastore: datastore1
+? Network VM Network
+? Virtual IP Address for API 172.20.2.228
+? Virtual IP Address for Ingress 172.20.2.229
+? Base Domain steve-ml.net
+? Cluster Name ocp4
+? Pull Secret [? for help] *****************
+```
+pull Secret에 대해서 아래 명령 수행후 copy & paste  
+```  
+cat merged_pullsecret.json  
+```  
+
+2. install-config 수정
+- Adding the Registry CA
+  Add the additionalTrustBundle parameter and value.
+```
+cd config
+echo "additionalTrustBundle: |" >> install-config.yaml  
+cat /etc/pki/ca-trust/source/anchors/ca.pem | sed -e 's/^/  /' >> install-config.yaml  
+```  
+
+- Add the image content resources below baseDomain item in install-config.yaml file
+  To complete these values, use the imageContentSources that you recorded during mirror registry creation
+```  
+imageContentSources:
+- mirrors:
+  - registry.steve-ml.net:5000/ocp4/openshift4
+  source: quay.io/openshift-release-dev/ocp-release
+- mirrors:
+  - registry.steve-ml.net:5000/ocp4/openshift4
+  source: quay.io/openshift-release-dev/ocp-v4.0-art-dev
+```    
+
+3. backup install-config file
+이후 openshift-install 작업은 install-config.yaml을 삭제하므로 미리 backup을 받는다.
+```  
+mkdir $HOME/disconnected/backup
+cd $HOME/disconnected
+cp config/install-config.yaml $HOME/disconnected/backup/.
+ls $HOME/disconnected/backup
+```  
+## ingtion file  생성 및 수정  
+vmware용 RHCOS를 사용할 예정으므로 이에 필요한 igntion file을 생성 및 수정한다. 
+그리고, 이 파일을 deploy하기 위해 httpd 설치 및 구성을 한다.  
 
 
 
+Change masterSchedulable Parameter  
+```  
+sed -e "s/mastersSchedulable: true/mastersSchedulable: false/g" config/manifests/cluster-scheduler-02-config.yml
+```  
+
+Remove the Kubernetes manifest files that define the control plane machines and compute machine sets:  
+```  
+rm -f config/openshift/99_openshift-cluster-api_master-machines-*.yaml openshift/99_openshift-cluster-api_worker-machineset-*.yaml
+```  
+
+## Configuring chrony time service  
+butane install: https://access.redhat.com/documentation/en-us/openshift_container_platform/4.10/html/installing/installation-configuration  
+
+```  
+curl https://mirror.openshift.com/pub/openshift-v4/clients/butane/latest/butane --output butane
+chmod +x butane
+
+```
+
+1. Create a Butane config including the contents of the chrony.conf file  
+- For master  
+```  
+cat << EOF > 99-master-chrony.bu
+variant: openshift
+version: 4.10.0
+metadata:
+  name: 99-worker-chrony 
+  labels:
+    machineconfiguration.openshift.io/role: master
+storage:
+  files:
+  - path: /etc/chrony.conf
+    mode: 0644 
+    overwrite: true
+    contents:
+      inline: |
+        pool 0.rhel.pool.ntp.org iburst 
+        driftfile /var/lib/chrony/drift
+        makestep 1.0 3
+        rtcsync
+        logdir /var/log/chrony
+EOF
+```  
+butane 99-worker-chrony.bu -o 99-master-chrony.yaml
+
+- For worker
+```  
+cat << EOF > 99-worker-chrony.bu
+variant: openshift
+version: 4.10.0
+metadata:
+  name: 99-worker-chrony 
+  labels:
+    machineconfiguration.openshift.io/role: worker 
+storage:
+  files:
+  - path: /etc/chrony.conf
+    mode: 0644 
+    overwrite: true
+    contents:
+      inline: |
+        pool 0.rhel.pool.ntp.org iburst 
+        driftfile /var/lib/chrony/drift
+        makestep 1.0 3
+        rtcsync
+        logdir /var/log/chrony
+EOF
+```  
+butane 99-worker-chrony.bu -o 99-worker-chrony.yaml
+cp 99-master-chrony.yaml 99-worker-chrony.yaml config/openshift/
+
+Create ingtion file  
+```  
+openshift-install create ignition-configs --dir config  
+```  
+```  
+INFO Consuming Master Machines from target directory
+INFO Consuming Common Manifests from target directory
+INFO Consuming OpenShift Install (Manifests) from target directory
+INFO Consuming Worker Machines from target directory
+INFO Consuming Openshift Manifests from target directory
+INFO Ignition-Configs created in: config and config/auth
+```  
+
+
+
+
+cp config/*.ign /var/www/html/ocp4/.
+chown -R apache:apache /var/www/html
+chmod 777 /var/www/html/ocp4/*
+```  
+
+Create merge bootstrap file  
+```
+cat << EOF > config/merge-bootstrap.ign
+{
+"ignition": {
+  "config": {
+    "merge": [
+      {
+        "source": "http://172.20.2.191/ocp4/bootstrap.ign",
+        "verification": {}
+      }
+    ]
+  },
+  "timeouts": {},
+  "version": "3.2.0"
+},
+"networkd": {},
+"passwd": {},
+"storage": {},
+"systemd": {}
+}
+EOF
+```  
+ignition file encoding
+```  
+cd config
+base64 -w0 merge-bootstrap.ign > merge-bootstrap.64
+base64 -w0 master.ign > master.64
+base64 -w0 worker.ign > worker.64
+```  
+
+
+BOOTSTRAP_ENCODING_DATA=$(cat config/merge-bootstrap.64;echo;)
+echo $BOOTSTRAP_ENCODING_DATA
+
+VM_NAME='bootstrap'
+LIBRARY='rhcos'
+TEMPLATE_NAME='rhcos-4.10.13'
+govc library.deploy "${LIBRARY}/${TEMPLATE_NAME}" "${VM_NAME}"
+govc vm.change -vm "${VM_NAME}" -e "disk.EnableUUID=TRUE"
+govc vm.change -vm "${VM_NAME}" -e "guestinfo.ignition.config.data.encoding=base64"
+govc vm.change -vm "${VM_NAME}" -e "guestinfo.ignition.config.data=${BOOTSTRAP_ENCODING_DATA}"
+
+export IPCFG="ip=172.20.2.253::172.20.0.1:255.255.252.0:::none nameserver=172.20.2.230"
+govc vm.change -vm "${VM_NAME}" -e "guestinfo.afterburn.initrd.network-kargs=${IPCFG}"
+
+govc vm.info -e "${VM_NAME}"
+
+govc vm.power -on "${VM_NAME}"
+
+
+
+
+ssh -i <path_to_private_SSH_key> core@<bootstrap_ip>
+
+journalctl -b -f -u release-image.service -u bootkube.service
+
+
+ 6443 connection refused  --> bootstrap이 완전이 올라올때 까지 기다릴 것
+ x509: certificate has expired or is not yet valid: current time 2022-05-19T04:38:58Z is before 2022-05-19T10:15:07Z
 
 
 
