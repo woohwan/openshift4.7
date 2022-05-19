@@ -463,7 +463,7 @@ ls $HOME/disconnected/backup
 vmware용 RHCOS를 사용할 예정으므로 이에 필요한 igntion file을 생성 및 수정한다. 
 그리고, 이 파일을 deploy하기 위해 httpd 설치 및 구성을 한다.  
 
-
+openshift-install create manifests --dir config
 
 Change masterSchedulable Parameter  
 ```  
@@ -615,8 +615,9 @@ ssh -i <path_to_private_SSH_key> core@<bootstrap_ip>
 journalctl -b -f -u release-image.service -u bootkube.service
 
 
- 6443 connection refused  --> bootstrap이 완전이 올라올때 까지 기다릴 것
- x509: certificate has expired or is not yet valid: current time 2022-05-19T04:38:58Z is before 2022-05-19T10:15:07Z
+x509: certificate has expired or is not yet valid: current time 2022-05-19T04:38:58Z is before 2022-05-19T10:15:07Z  --> https://access.redhat.com/solutions/6339541
+
+6443 connection refused  --> bootstrap이 완전이 올라올때 까지 기다릴 것
 
 
 
