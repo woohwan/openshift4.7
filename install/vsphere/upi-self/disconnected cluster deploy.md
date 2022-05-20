@@ -215,7 +215,7 @@ how to fix it, please visit the web page mentioned above.
 ```  
 2. ou haven’t added the new self-signed certificate to your trusted store on the bastion. Do this and test again.  
 ```  
-sudo scp egistry.steve-ml.net:/opt/registry/certs/ca.pem /etc/pki/ca-trust/source/anchors
+sudo scp registry.steve-ml.net:/opt/registry/certs/ca.pem /etc/pki/ca-trust/source/anchors
 sudo update-ca-trust
 curl -u openshift:redhat https://registry.steve-ml.net:5000/v2/_catalog   
 ```  
@@ -320,6 +320,9 @@ Component Versions:
 oc adm release info -a ${LOCAL_SECRET_JSON} "quay.io/${PRODUCT_REPO}/${RELEASE_NAME}:${OCP_RELEASE}-${ARCHITECTURE}" | head -n 18  
 ```
   위와 동일한지 확인  
+
+### Catalog mirroring  
+
 
 # Prepare Installation artifact  
 ## Obtaining the installation program  
@@ -430,9 +433,52 @@ pull Secret에 대해서 아래 명령 수행후 copy & paste
 cat merged_pullsecret.json  
 ```  
 
-2. install-config 수정
-- Adding the Registry CA
-  Add the additionalTrustBundle parameter and value.
+2. install-config 수정  
+UPI Installation설치이므로  아래 smaple을 참고하여 수정한다.  
+위 install-config 생성은 자동으로 생성된 것이므로 수정이 필요하다. 그렇지 않을 경우,  
+IPI설치와 동일한 방법이므로 bootstrap node가 API가 vip를 가져가므로 기존에 설치한 haproxy와 충돌한다.  
+platform.vsphere 부분만 수정하면 된다.  
+```  
+apiVersion: v1
+baseDomain: example.com 
+compute: 
+- hyperthreading: Enabled 
+  name: worker
+  replicas: 0 
+controlPlane: 
+  hyperthreading: Enabled 
+  name: master
+  replicas: 3 
+metadata:
+  name: test 
+platform:
+  vsphere:
+    vcenter: your.vcenter.server 
+    username: username 
+    password: password 
+    datacenter: datacenter 
+    defaultDatastore: datastore 
+    folder: "/<datacenter_name>/vm/<folder_name>/<subfolder_name>" 
+    resourcePool: "/<datacenter_name>/host/<cluster_name>/Resources/<resource_pool_name>" 
+    diskType: thin 
+fips: false 
+pullSecret: '{"auths":{"<local_registry>": {"auth": "<credentials>","email": "you@example.com"}}}' 
+sshKey: 'ssh-ed25519 AAAA...' 
+additionalTrustBundle: | 
+  -----BEGIN CERTIFICATE-----
+  ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ
+  -----END CERTIFICATE-----
+imageContentSources: 
+- mirrors:
+  - <local_registry>/<local_repository_name>/release
+  source: quay.io/openshift-release-dev/ocp-release
+- mirrors:
+  - <local_registry>/<local_repository_name>/release
+  source: quay.io/openshift-release-dev/ocp-v4.0-art-dev
+```  
+
+- Adding the Registry CA  
+  Add the additionalTrustBundle parameter and value.  
 ```
 cd config
 echo "additionalTrustBundle: |" >> install-config.yaml  
@@ -451,7 +497,7 @@ imageContentSources:
   source: quay.io/openshift-release-dev/ocp-v4.0-art-dev
 ```    
 
-3. backup install-config file
+1. backup install-config file
 이후 openshift-install 작업은 install-config.yaml을 삭제하므로 미리 backup을 받는다.
 ```  
 mkdir $HOME/disconnected/backup
