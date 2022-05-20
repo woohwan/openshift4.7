@@ -401,7 +401,7 @@ update-ca-trust extract
 vCenter 설치 시 cluster 구성 후 host 추가  
 ( cluster 구성도: vcsa.steve-ml.net -> Datacenter -> mycluster -> host )  
 
-## Configruation file 생성 및 수정
+## intall config file 생성 및 수정
 1. install-config file 생성  
 ```  
 cd $HOME/disconnected
@@ -459,10 +459,7 @@ cd $HOME/disconnected
 cp config/install-config.yaml $HOME/disconnected/backup/.
 ls $HOME/disconnected/backup
 ```  
-## ingtion file  생성 및 수정  
-vmware용 RHCOS를 사용할 예정으므로 이에 필요한 igntion file을 생성 및 수정한다. 
-그리고, 이 파일을 deploy하기 위해 httpd 설치 및 구성을 한다.  
-
+## manifests file  생성 및 수정  
 openshift-install create manifests --dir config
 
 Change masterSchedulable Parameter  
@@ -472,7 +469,7 @@ sed -e "s/mastersSchedulable: true/mastersSchedulable: false/g" config/manifests
 
 Remove the Kubernetes manifest files that define the control plane machines and compute machine sets:  
 ```  
-rm -f config/openshift/99_openshift-cluster-api_master-machines-*.yaml openshift/99_openshift-cluster-api_worker-machineset-*.yaml
+rm -f config/openshift/99_openshift-cluster-api_master-machines-*.yaml config/openshift/99_openshift-cluster-api_worker-machineset-*.yaml
 ```  
 
 ## Configuring chrony time service  
@@ -536,7 +533,9 @@ EOF
 butane 99-worker-chrony.bu -o 99-worker-chrony.yaml
 cp 99-master-chrony.yaml 99-worker-chrony.yaml config/openshift/
 
-Create ingtion file  
+## Create ingtion file  
+vmware용 RHCOS를 사용할 예정으므로 이에 필요한 igntion file을 생성 및 수정한다. 
+그리고, 이 파일을 deploy하기 위해 httpd 설치 및 구성을 한다.  
 ```  
 openshift-install create ignition-configs --dir config  
 ```  
@@ -548,13 +547,13 @@ INFO Consuming Worker Machines from target directory
 INFO Consuming Openshift Manifests from target directory
 INFO Ignition-Configs created in: config and config/auth
 ```  
-
-
-
-
+### Copy ignition file to httpd root/ocp4 directory
+```
+rm -f /var/www/html/ocp4/*
 cp config/*.ign /var/www/html/ocp4/.
 chown -R apache:apache /var/www/html
 chmod 777 /var/www/html/ocp4/*
+ll /var/www/html/ocp4/
 ```  
 
 Create merge bootstrap file  
@@ -586,9 +585,11 @@ cd config
 base64 -w0 merge-bootstrap.ign > merge-bootstrap.64
 base64 -w0 master.ign > master.64
 base64 -w0 worker.ign > worker.64
+cd ..
+ll config
 ```  
 
-cd ..
+
 BOOTSTRAP_ENCODING_DATA=$(cat config/merge-bootstrap.64;echo;)
 echo $BOOTSTRAP_ENCODING_DATA
 
@@ -618,6 +619,12 @@ journalctl -b -f -u release-image.service -u bootkube.service
 x509: certificate has expired or is not yet valid: current time 2022-05-19T04:38:58Z is before 2022-05-19T10:15:07Z  --> https://access.redhat.com/solutions/6339541  : ntp 맞추줄 것. hardware
 
 6443 connection refused  --> bootstrap이 완전이 올라올때 까지 기다릴 것
+
+
+ failed to list *v1.ConfigMap  --> pull Secret 수정
+
+openshift-install wait-for bootstrap-complete --dir config --log-level de
+bug
 
 
 
