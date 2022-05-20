@@ -635,7 +635,8 @@ cd ..
 ll config
 ```  
 
-
+### Test Bootstap Node
+```
 BOOTSTRAP_ENCODING_DATA=$(cat config/merge-bootstrap.64;echo;)
 echo $BOOTSTRAP_ENCODING_DATA
 
@@ -653,7 +654,7 @@ govc vm.change -vm "${VM_NAME}" -e "guestinfo.afterburn.initrd.network-kargs=${I
 govc vm.info -e "${VM_NAME}"
 
 govc vm.power -on "${VM_NAME}"
-
+```
 
 
 
@@ -662,13 +663,15 @@ ssh -i <path_to_private_SSH_key> core@<bootstrap_ip>
 journalctl -b -f -u release-image.service -u bootkube.service
 
 
+
+# TroubleShooting
 x509: certificate has expired or is not yet valid: current time 2022-05-19T04:38:58Z is before 2022-05-19T10:15:07Z  --> https://access.redhat.com/solutions/6339541  : ntp 맞추줄 것. hardware
 
 6443 connection refused  --> bootstrap이 완전이 올라올때 까지 기다릴 것
 
 
- failed to list *v1.ConfigMap  --> pull Secret 수정
-
+ failed to list *v1.ConfigMap  --> pull Secret 수정. mirror registry에 email 추가함  
+ 
 openshift-install wait-for bootstrap-complete --dir config --log-level de
 bug
 

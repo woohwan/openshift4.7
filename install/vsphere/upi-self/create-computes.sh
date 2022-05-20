@@ -19,7 +19,7 @@ function check_exit_code() {
         fi
 }
 
-# create bootstrap VM
+# create compute node VM
 echo "Creating Control Plane VMs"
 #: << "end"
 for VM_NAME in ${!VM_IP_MAP[@]}; do

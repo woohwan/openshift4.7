@@ -1,8 +1,8 @@
 #!/bin/bash
 VM_NAME=bootstrap
 LIBRARY='rhcos'
-TEMPLATE_NAME='rhcos-4.7.33'
-BASE64_IGN_LOCATION='/root/ocp4/merge-bootstrap.64'
+TEMPLATE_NAME='rhcos-4.10.13'
+BASE64_IGN_LOCATION='/root/disconnected/config/merge-bootstrap.64'
 VM_FOLDER='ocp4'
 
 function check_exit_code() {

@@ -20,17 +20,17 @@ function check_exit_code() {
                 echo "OK"
         fi
 }
-: << "END"
-# create bootstrap VM
+#: << "END"
+# create controlplane VM
 echo "Creating Control Plane VMs"
-for VM_NAME in $CONTROL_PLANE_NAMES; do
+for VM_NAME in ${!VM_IP_MAP[@]}; do
         echo "Creating '${VM_NAME}' ..."
         govc library.deploy -folder="${VM_FOLDER}" "${LIBRARY}/${TEMPLATE_NAME}" "${VM_NAME}" 
         check_exit_code $? "Cannot create Control Plane VM"
 
 done
 
-END
+#END
 
 # Chnage VM Spec and Environment Varialbe
 IGN_ENCODING=$(cat "${BASE64_IGN_LOCATION}";echo)
