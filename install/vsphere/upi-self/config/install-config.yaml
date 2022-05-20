@@ -1,0 +1,68 @@
+apiVersion: v1
+baseDomain: steve-ml.net
+imageContentSources:
+- mirrors:
+  - registry.steve-ml.net:5000/ocp4/openshift4
+  source: quay.io/openshift-release-dev/ocp-release
+- mirrors:
+  - registry.steve-ml.net:5000/ocp4/openshift4
+  source: quay.io/openshift-release-dev/ocp-v4.0-art-dev
+compute:
+- architecture: amd64
+  hyperthreading: Enabled
+  name: worker
+  platform: {}
+  replicas: 0
+controlPlane:
+  architecture: amd64
+  hyperthreading: Enabled
+  name: master
+  platform: {}
+  replicas: 3
+metadata:
+  creationTimestamp: null
+  name: ocp4
+networking:
+  clusterNetwork:
+  - cidr: 10.128.0.0/14
+    hostPrefix: 23
+  machineNetwork:
+  - cidr: 10.0.0.0/16
+  networkType: OpenShiftSDN
+  serviceNetwork:
+  - 172.30.0.0/16
+platform:
+  vsphere:
+    datacenter: Datacenter
+    defaultDatastore: datastore1
+    password: OOOOOO
+    username: OOOOOO
+    vCenter: OOOOOO
+    folder: "/Datacenter/vm/ocp4"
+    diskType: thin
+fips: false
+pullSecret: ''
+sshKey: |
+  
+additionalTrustBundle: |
+  -----BEGIN CERTIFICATE-----
+  MIIDdjCCAl6gAwIBAgIUdW1pDjTSAF68NZYuH5TWsMs2MSswDQYJKoZIhvcNAQEL
+  BQAwUzELMAkGA1UEBhMCS1IxDjAMBgNVBAgTBVNlb3VsMQ8wDQYDVQQHEwZHdXJv
+  R3UxDDAKBgNVBAsTA09TUzEVMBMGA1UEAxMMU2FsdHdhcmUgT1NTMB4XDTIyMDUx
+  NzE1NTcwMFoXDTI3MDUxNjE1NTcwMFowUzELMAkGA1UEBhMCS1IxDjAMBgNVBAgT
+  BVNlb3VsMQ8wDQYDVQQHEwZHdXJvR3UxDDAKBgNVBAsTA09TUzEVMBMGA1UEAxMM
+  U2FsdHdhcmUgT1NTMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA1gYA
+  5pnAlhi8D1HCsz2zQ5/fx+TocFEOKqM9L8TJQb9DWh4Zp8ojJaT/UAVFI3MAM0vC
+  YNpnnRG1CuRNh5jwCwBXHiY7kSvEIkk0MF/4w/bkEClY3cW2DWKBnYk1ffJ0lIsl
+  ixCgYXbXqBwgkbNlRdS+7Gf5VKmvsSM9Awmn7JhqunX9DAIehP9zi2Og2oBV9zIE
+  3S9CyDNj8JH7XjCVZOPTGbcjGeyR50vyRTuDSXfVfWX1cvz9BHmCuTKe55CspT/n
+  aFSXVm2INjGLah+5ksiuNKV9WiNyBh37rgtX5NtV9/kA8mqMVyz9eQ085PU6jUPv
+  FiUdNVMy0ypETFsULQIDAQABo0IwQDAOBgNVHQ8BAf8EBAMCAQYwDwYDVR0TAQH/
+  BAUwAwEB/zAdBgNVHQ4EFgQUYfgzEfeIk7PbYImROnZ7mcgA9/4wDQYJKoZIhvcN
+  AQELBQADggEBAMFNKaI93XET78pmzVTyXepEo9Huh3ysTCB/yHDsOnba+fS5m68Q
+  Ur9Yn6a5Q/B2OkQtPPFP+5CDQXAY5nVKNhLFaaLCEKN2wW/ux3Q8doj7scms8MG/
+  DtvTEI7EKp6JQ/eEe3H2g/LyeY2ahS3nivnZWxbM34195DFcUlcnjHsWfMGfgHlc
+  e3AMA+MTPm5UB/ry+jwoTrLnwiqWBDAFh7IyOYat3Cgdew8TuDNryuma4m8ZOAa+
+  ouNqlLnrx9YRMf0e7/3c2/A5oZLEXm2Pg7gWCjvAezIknuvnOlM0NCa/wU43fKAm
+  2leWdiTsOOfoQPgZYRlKinu31IDW+bzREbY=
+  -----END CERTIFICATE-----

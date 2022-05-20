@@ -55,3 +55,9 @@ for VM_NAME in ${!VM_IP_MAP[@]}; do
 done
 
 echo "Control Plane VMs was created"
+echo 'Staring Controlplane VMs'
+
+for VM_NAME in ${!VM_IP_MAP[@]}; do
+        echo "Starting controlplnae ${VM_NAME}"
+        govc vm.power -on ${VM_NAME}
+done
