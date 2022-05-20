@@ -36,3 +36,5 @@ export IPCFG="ip=172.20.2.253::172.20.0.1:255.255.252.0:boostrap.ocp4.steve-ml.n
 govc vm.change -vm "${VM_NAME}" -e "guestinfo.afterburn.initrd.network-kargs=${IPCFG}"
 
 echo 'Bootstrap VM was created'
+echo 'Staring Bootstrap VM'
+govc vm.power -on ${VM_NAME}
