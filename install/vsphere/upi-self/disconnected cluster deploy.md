@@ -655,23 +655,29 @@ govc vm.info -e "${VM_NAME}"
 
 govc vm.power -on "${VM_NAME}"
 ```
+### 스크립트 수행  
+```  
+create-bootstrap.sh
+create-controls.sh
+create-computes.sh
+```  
 
-
-
+# TroubleShooting  
+```  
 ssh -i <path_to_private_SSH_key> core@<bootstrap_ip>
-
 journalctl -b -f -u release-image.service -u bootkube.service
+```  
 
-
-
-# TroubleShooting
 x509: certificate has expired or is not yet valid: current time 2022-05-19T04:38:58Z is before 2022-05-19T10:15:07Z  --> https://access.redhat.com/solutions/6339541  : ntp 맞추줄 것. hardware
 
 6443 connection refused  --> bootstrap이 완전이 올라올때 까지 기다릴 것
 
 
- failed to list *v1.ConfigMap  --> pull Secret 수정. mirror registry에 email 추가함  
- 
+ failed to list *v1.ConfigMap  --> pull Secret 수정. mirror registry에 email 추가함  (?)
+ --> UPI install이기 때문에 install-config.yaml file에 API & Ingress VIP가 있으면 안된다.
+ IPI install처럼 bootstrap node에서 API VIP를 구성하기때문에 HA Proxy를 별도로 구성하는 UPI에서는 API VIP가
+ 충돌한다.
+
 openshift-install wait-for bootstrap-complete --dir config --log-level de
 bug
 

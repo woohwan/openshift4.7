@@ -1,7 +1,7 @@
 #!/bin/bash
 LIBRARY="rhcos"
-TEMPLATE_NAME="rhcos-4.7.33"
-BASE64_IGN_LOCATION="/root/ocp4/worker.64"
+TEMPLATE_NAME="rhcos-4.10.13"
+BASE64_IGN_LOCATION="/root/disconnected/config/worker.64"
 VM_FOLDER="ocp4"
 
 declare -A VM_IP_MAP
@@ -20,7 +20,7 @@ function check_exit_code() {
 }
 
 # create compute node VM
-echo "Creating Control Plane VMs"
+echo "Creating Compute nodes VMs"
 #: << "end"
 for VM_NAME in ${!VM_IP_MAP[@]}; do
         echo "Creating '${VM_NAME}' ..."
@@ -53,3 +53,9 @@ for VM_NAME in ${!VM_IP_MAP[@]}; do
 done
 
 echo "Control Plane VMs was created"
+echo 'Staring Compute nodes VMs'
+
+for VM_NAME in ${!VM_IP_MAP[@]}; do
+        echo "Starting compute node ${VM_NAME}"
+        govc vm.power -on ${VM_NAME}
+done
