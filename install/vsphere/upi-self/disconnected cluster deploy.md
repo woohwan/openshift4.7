@@ -636,6 +636,8 @@ cd ..
 ll config
 ```  
 
+
+check 할 것:  govc vm.upgrade -version=15 -vm $1
 ### Test Bootstap Node
 ```
 BOOTSTRAP_ENCODING_DATA=$(cat config/merge-bootstrap.64;echo;)
@@ -698,7 +700,7 @@ oc get csr -o jsonpath='{range .items[?(@.status.conditions[*].type=="Pending")]
 
 pending state의 csr 승인  (주기적으로 check)
 ```  
-oc adm certificate approve 
+oc adm certificate approve <csr_name>
 ```  
 To approve all pending CSRs, run the following command:  
 ```  
@@ -766,17 +768,18 @@ ssh -i <path_to_private_SSH_key> core@<bootstrap_ip>
 journalctl -b -f -u release-image.service -u bootkube.service
 ```  
 
-x509: certificate has expired or is not yet valid: current time 2022-05-19T04:38:58Z is before 2022-05-19T10:15:07Z  --> https://access.redhat.com/solutions/6339541  : ntp 맞추줄 것. hardware
+- x509: certificate has expired or is not yet valid: current time 2022-05-19T04:38:58Z is before 2022-05-19T10:15:07Z  --> https://access.redhat.com/solutions/6339541  : ntp 맞추줄 것. hardware
 
-6443 connection refused  --> bootstrap이 완전이 올라올때 까지 기다릴 것
+- 6443 connection refused  --> bootstrap이 완전이 올라올때 까지 기다릴 것
 
-
- failed to list *v1.ConfigMap  --> pull Secret 수정. mirror registry에 email 추가함  (?)
- --> UPI install이기 때문에 install-config.yaml file에 API & Ingress VIP가 있으면 안된다.
+ - failed to list *v1.ConfigMap  --> pull Secret 수정. mirror registry에 email 추가함  (?)  
+ --> UPI install이기 때문에 install-config.yaml file에 API & Ingress VIP가 있으면 안된다.  
  IPI install처럼 bootstrap node에서 API VIP를 구성하기때문에 HA Proxy를 별도로 구성하는 UPI에서는 API VIP가
- 충돌한다.
+ 충돌한다.  
 
-
+- Cluster Operator auth, ingress 에러가 날 경우 csr이 모두 approve가 되었는지 확인.   
+  위 내용을 보면 control plane, compute node 각각 2개씩 총 10개,   
+  그리고 authentication, monitoring operator 하나씩
 
 
 
