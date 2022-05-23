@@ -380,17 +380,17 @@ wget vcsa.steve-ml.net/certs/download.zip
 unzip download.zip  
 tree certs
 ```  
-certs/
-├── lin
-│   ├── b1dd9126.0
-│   └── b1dd9126.r1
-├── mac
-│   ├── b1dd9126.0
-│   └── b1dd9126.r1
-└── win
-    ├── b1dd9126.0.crt
+certs/  
+├── lin  
+│   ├── b1dd9126.0  
+│   └── b1dd9126.r1  
+├── mac  
+│   ├── b1dd9126.0  
+│   └── b1dd9126.r1  
+└── win  
+    ├── b1dd9126.0.crt  
     └── b1dd9126.r1.crl   
-
+```
 3. Add the files for your operating system to the system trust. For example, on a Fedora operating system, run the following command  
 ```  
 cp certs/lin/* /etc/pki/ca-trust/source/anchors  
@@ -510,7 +510,8 @@ openshift-install create manifests --dir config
 
 Change masterSchedulable Parameter  
 ```  
-sed -e "s/mastersSchedulable: true/mastersSchedulable: false/g" config/manifests/cluster-scheduler-02-config.yml
+sed -i "s/ mastersSchedulable: true/ mastersSchedulable: false/" 
+cat config/manifests/cluster-scheduler-02-config.yml
 ```  
 
 Remove the Kubernetes manifest files that define the control plane machines and compute machine sets:  
@@ -659,10 +660,107 @@ govc vm.power -on "${VM_NAME}"
 ```  
 create-bootstrap.sh
 create-controls.sh
+```  
+### 설치 모니터링
+1. bootstrap node & controlplane
+```
+openshift-install wait-for bootstrap-complete --dir config --log-level debug
+```
+```  
+DEBUG OpenShift Installer 4.10.13
+DEBUG Built from commit ed025ee9ca62dd3fb7f7f7eaff9c90fd1a011fe2
+INFO Waiting up to 20m0s (until 1:50PM) for the Kubernetes API at https://api.ocp4.steve-ml.net:6443...
+INFO API v1.23.5+b463d71 up
+INFO Waiting up to 30m0s (until 2:00PM) for bootstrapping to complete...
+DEBUG Bootstrap status: complete
+INFO It is now safe to remove the bootstrap resources
+INFO Time elapsed: 0s
+```  
+bootstrap node 완료 후, 위 내용처럼 bootstrap node삭제 및 haproxy에서 bootstrap node를 comment처리한다.  
+
+Control Plane이 정상적으로 start up되었는지 확인한다.  
+```
+export KUBECONFIG=$HOME/disconnected/config/auth/kubeconfig
+oc get nodes
+```  
+2. worker node 추가  
+```  
 create-computes.sh
 ```  
+- csr 승인: compute node가 추가되면서 node관련 csr request    
+```  
+oc get csr
+```  
+또는  
+```  
+oc get csr -o jsonpath='{range .items[?(@.status.conditions[*].type=="Pending")]} {.spec.username}{"\n"}{end}'  
+```  
+
+pending state의 csr 승인  (주기적으로 check)
+```  
+oc adm certificate approve 
+```  
+To approve all pending CSRs, run the following command:  
+```  
+oc get csr -o go-template='{{range .items}}{{if not .status}}{{.metadata.name}}{{"\n"}}{{end}}{{end}}' | xargs oc adm certificate approve
+```  
+monitoring
+```  
+oc get csr -o jsonpath='{ range .items[*]}{.spec.username}{"\t"}{.status.conditions[*].type}{"\n"}{end}'
+```  
+```  
+system:serviceaccount:openshift-machine-config-operator:node-bootstrapper       Approved
+system:serviceaccount:openshift-machine-config-operator:node-bootstrapper       Approved
+system:node:cp2.ocp4.steve-ml.net       Approved
+system:node:cptnod0.ocp4.steve-ml.net   Approved
+system:serviceaccount:openshift-machine-config-operator:node-bootstrapper       Approved
+system:node:cptnod1.ocp4.steve-ml.net   Approved
+system:node:cp0.ocp4.steve-ml.net       Approved
+system:serviceaccount:openshift-machine-config-operator:node-bootstrapper       Approved
+system:serviceaccount:openshift-machine-config-operator:node-bootstrapper       Approved
+system:node:cp1.ocp4.steve-ml.net       Approved
+system:serviceaccount:openshift-authentication-operator:authentication-operator Approved
+system:serviceaccount:openshift-monitoring:cluster-monitoring-operator  Approved
+```  
+
+3. install complete 모니터링  
+```  
+openshift-install wait-for install-complete --dir config --log-level debu
+g
+```  
+```  
+INFO Install complete!
+INFO To access the cluster as the system:admin user when using 'oc', run 'export KUBECONFIG=/root/disconnected/config/auth/kubeconfig'
+INFO Access the OpenShift web-console here: https://console-openshift-console.apps.ocp4.steve-ml.net
+INFO Login to the console with user: "kubeadmin", and password: "OOOOOOOOOOOO"
+DEBUG Time elapsed per stage:
+DEBUG Cluster Operators: 25m10s
+INFO Time elapsed: 25m10s  
+```  
+나중에 tail -f config/.openshift_install.log 통해서도 확인 가능
+
+cluster operator 확인
+```  
+oc get co
+``` 
+
+설치 완료 확인  
+```  
+openshift-install wait-for bootstrap-complete --dir config --log-level debug  
+```  
+
+4. web console access  
+web console에 접근하기 위해서는 cluster가 사용하는 Name Server에 연결되어 있어야 한다.
+여기서는 외부접근을 가능하게 하기 위해  api와 apps에 관련 dns을 AWS route53에 등록한다.
+*.apps.ocp4.steve-ml.net  172.20.2.228
+api.ocp4.steve-ml.net  172.20.2.228
+
+ref: oc whoami --show-console  
+
 
 # TroubleShooting  
+참고 url: https://docs.openshift.com/container-platform/4.10/support/troubleshooting/troubleshooting-installations.html  
+
 ```  
 ssh -i <path_to_private_SSH_key> core@<bootstrap_ip>
 journalctl -b -f -u release-image.service -u bootkube.service
@@ -678,8 +776,7 @@ x509: certificate has expired or is not yet valid: current time 2022-05-19T04:38
  IPI install처럼 bootstrap node에서 API VIP를 구성하기때문에 HA Proxy를 별도로 구성하는 UPI에서는 API VIP가
  충돌한다.
 
-openshift-install wait-for bootstrap-complete --dir config --log-level de
-bug
+
 
 
 
