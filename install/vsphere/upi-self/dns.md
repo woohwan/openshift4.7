@@ -18,9 +18,14 @@ cp0.ocp4            300     IN      A   172.20.2.235
 cp1.ocp4            300     IN      A   172.20.2.236
 cp2.ocp4            300     IN      A   172.20.2.237
 
-; Create entries for the comput nodes.
+; Create entries for the compute nodes.
 cptnod0.ocp4        300     IN      A   172.20.2.245
 cptnod1.ocp4        300     IN      A   172.20.2.246
+
+; Create entries for the infra nodes.
+infra0.ocp4        300     IN      A   172.20.2.247
+infra1.ocp4        300     IN      A   172.20.2.248
+infra2.ocp4        300     IN      A   172.20.2.249
 
 ------------------ PTR ----------------------------
 ; The syntax is "last octet" and the host must have an FQDN
@@ -40,4 +45,8 @@ cptnod1.ocp4        300     IN      A   172.20.2.246
 245	    300     IN	    PTR	    cptnod0.ocp4.steve-ml.net.
 246	    300     IN	    PTR	    cptnod1.ocp4.steve-ml.net.
 ;
-```
+
+247	    300     IN	    PTR	    infra0.ocp4.steve-ml.net.
+248	    300     IN	    PTR	    infra1.ocp4.steve-ml.net.
+249	    300     IN	    PTR	    infra2.ocp4.steve-ml.net.
+```  
