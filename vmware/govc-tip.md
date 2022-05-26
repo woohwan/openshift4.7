@@ -75,7 +75,24 @@ export GOVC_NETWORK=VM Network # Default network to deploy to
 export GOVC_RESOURCE_POOL=/Datacenter/host/mycluster/Resources # Default resource pool to deploy t
 export GOVC_FOLDER=starter # Default folder for our deployments
 ```
+### Filtering  
+govc find --help  
+Exmaple:  
+govc find
+govc find -l / # include object type in output
+govc find /dc1 -type c
+govc find vm -name my-vm-*
+govc find . -type n
+govc find -p /folder-a/dc-1/host/folder-b/cluster-a -type Datacenter # prints /folder-a/dc-1
+govc find . -type m -runtime.powerState poweredOn
+govc find . -type m -datastore $(govc find -i datastore -name vsanDatastore)
+govc find . -type s -summary.type vsan
+govc find . -type s -customValue *:prod # Key:Value
+govc find . -type h -hardware.cpuInfo.numCpuCores 16  
+```  
 
+
+```
 ### Get VM Information  
 #### basic info  
 ```
