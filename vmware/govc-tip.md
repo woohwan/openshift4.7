@@ -75,6 +75,13 @@ export GOVC_NETWORK=VM Network # Default network to deploy to
 export GOVC_RESOURCE_POOL=/Datacenter/host/mycluster/Resources # Default resource pool to deploy t
 export GOVC_FOLDER=starter # Default folder for our deployments
 ```
+### vm hardware version check
+govc vm.option.info -json -cluster $cluster_name | jq -r .Version
+```  
+[root@bastion ~]# govc vm.option.info -json -cluster mycluster | jq -r .Version
+vmx-19
+```   
+
 ### Filtering  
 govc find --help  
 Exmaple:  

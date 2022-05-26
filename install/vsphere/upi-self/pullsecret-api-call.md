@@ -9,9 +9,9 @@ The api for https://cloud.redhat.com/openshift/ is at https://api.openshift.com/
 You need to authenticate using a Bearer token, which you can get from the second section at https://cloud.redhat.com/openshift/token. This link details using a long lived access token, which is obtained there too.  
 
 token을 local file offline_access_token에 copy & paste 한다.  
+
 환경변수 OFFLINE_ACCESS_TOKEN에 저장
 ```  
-vi offline_access_token
 export OFFLINE_ACCESS_TOKEN=$(cat offline_access_token)
 echo $OFFLINE_ACCESS_TOKEN
 ```  

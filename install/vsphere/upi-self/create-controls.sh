@@ -39,7 +39,7 @@ IGN_ENCODING=$(cat "${BASE64_IGN_LOCATION}";echo)
 echo "Change VM Spec and Env Variable"
 for VM_NAME in ${!VM_IP_MAP[@]}; do
         echo "Chnaging  Spec & Env vars of ${VM_NAME}"
-        
+
         govc vm.change -vm "${VM_NAME}" -c=4 -m=16384
 
         govc vm.disk.change -vm "${VM_NAME}" -size 120G

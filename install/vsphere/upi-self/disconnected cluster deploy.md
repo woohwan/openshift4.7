@@ -510,7 +510,7 @@ openshift-install create manifests --dir config
 
 Change masterSchedulable Parameter  
 ```  
-sed -i "s/ mastersSchedulable: true/ mastersSchedulable: false/" 
+sed -i "s/ mastersSchedulable: true/ mastersSchedulable: false/" config/manifests/cluster-scheduler-02-config.yml
 cat config/manifests/cluster-scheduler-02-config.yml
 ```  
 
@@ -636,8 +636,22 @@ cd ..
 ll config
 ```  
 
+### Red Hat 제공 OVA는 default로 Hardware Version 13으로 설정되어 있어 변경 필요  
+### Modifying OVF metadata  
+참고: https://docs.fedoraproject.org/en-US/fedora-coreos/provisioning-vmware/   
+```  
+While we provide these instructions for modifying the OVF metadata, we cannot guarantee that any modifications to the OVF metadata will result in a usable guest VM.
+Fedora CoreOS is intended to run on generally supported releases of VMware ESXi, VMware Workstation, and VMware Fusion. Accordingly, the Fedora CoreOS VMware OVA image specifies a virtual hardware version that may not be compatible with older, unsupported VMware products. However, you can modify the image’s OVF metadata to specify an older virtual hardware version.
 
-check 할 것:  govc vm.upgrade -version=15 -vm $1
+The VMware OVA is simply a tarball that contains the files disk.vmdk and coreos.ovf. In order to edit the metadata used by FCOS as a guest VM, you should untar the OVA artifact, edit the OVF file, then create a new OVA file.
+
+The example commands below change the OVF hardware version from the preconfigured value to hardware version 13. (Note: the defaults in the OVF are subject to change.)
+
+tar -xvf fedora-coreos-36.20220505.3.2-vmware.x86_64.ova
+sed -iE 's/vmx-[0-9]*/vmx-13/' coreos.ovf
+tar -H posix -cvf fedora-coreos-36.20220505.3.2-vmware-vmx-13.x86_64.ova coreos.ovf disk.vmdk
+```  
+
 ### Test Bootstap Node
 ```
 BOOTSTRAP_ENCODING_DATA=$(cat config/merge-bootstrap.64;echo;)
@@ -692,10 +706,6 @@ create-computes.sh
 - csr 승인: compute node가 추가되면서 node관련 csr request    
 ```  
 oc get csr
-```  
-또는  
-```  
-oc get csr -o jsonpath='{range .items[?(@.status.conditions[*].type=="Pending")]} {.spec.username}{"\n"}{end}'  
 ```  
 
 pending state의 csr 승인  (주기적으로 check)
@@ -779,7 +789,12 @@ journalctl -b -f -u release-image.service -u bootkube.service
 
 - Cluster Operator auth, ingress 에러가 날 경우 csr이 모두 approve가 되었는지 확인.   
   위 내용을 보면 control plane, compute node 각각 2개씩 총 10개,   
-  그리고 authentication, monitoring operator 하나씩
+  그리고 authentication, monitoring operator 하나씩  
+
+
+
+
+
 
 
 
