@@ -792,10 +792,18 @@ journalctl -b -f -u release-image.service -u bootkube.service
   그리고 authentication, monitoring operator 하나씩  
 
 
+### add Infra nodes  
+```  
+oc label node <node-name> node-role.kubernetes.io/infra=
+
+oc adm taint nodes -l node-role.kubernetes.io/infra node-role.kubernetes.io/infra=reserved:NoSchedule node-role.kubernetes.io/infra=reserved:NoExecute
+```  
 
 
-
-
+work role 제거
+```  
+oc label node  infra0.ocp4.steve-ml.net node-role.kubernetes.io/worker-
+```  
 
 
 
