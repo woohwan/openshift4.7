@@ -1,0 +1,65 @@
+apiVersion: machineconfiguration.openshift.io/v1
+kind: MachineConfig
+metadata:
+  labels:
+    machineconfiguration.openshift.io/role: worker
+  name: 98-var-lib-containers
+spec:
+  config:
+    ignition:
+      version: 3.2.0
+    systemd:
+      units:
+      - contents: |
+          [Unit]
+          Description=Make File System on /dev/sdb
+          DefaultDependencies=no
+          BindsTo=dev-sdb.device
+          After=dev-sdb.device var.mount
+          Before=systemd-fsck@dev-sdb.service
+
+          [Service]
+          Type=oneshot
+          RemainAfterExit=yes
+          ExecStart=-/bin/bash -c "/bin/rm -rf /var/lib/containers/*"
+          ExecStart=/usr/lib/systemd/systemd-makefs xfs /dev/sdb
+          TimeoutSec=0
+
+          [Install]
+          WantedBy=var-lib-containers.mount
+        enabled: true
+        name: systemd-mkfs@dev-sdb.service
+      - contents: |
+          [Unit]
+          Description=Mount /dev/sdb to /var/lib/containers
+          Before=local-fs.target
+          Requires=systemd-mkfs@dev-sdb.service
+          After=systemd-mkfs@dev-sdb.service
+
+          [Mount]
+          What=/dev/sdb
+          Where=/var/lib/containers
+          Type=xfs
+          Options=defaults,prjquota
+
+          [Install]
+          WantedBy=local-fs.target
+        enabled: true
+        name: var-lib-containers.mount
+      - contents: |
+          [Unit]
+          Description=Restore recursive SELinux security contexts
+          DefaultDependencies=no
+          After=var-lib-containers.mount
+          Before=crio.service
+
+          [Service]
+          Type=oneshot
+          RemainAfterExit=yes
+          ExecStart=/sbin/restorecon -R /var/lib/containers/
+          TimeoutSec=0
+
+          [Install]
+          WantedBy=multi-user.target graphical.target
+        enabled: true
+        name: restorecon-var-lib-containers.service
