@@ -1,0 +1,5 @@
+[root@demo ~]# oc completion bash > /etc/bash_completion.d/openshift
+[root@demo ~]# openshift-install completion bash \
+> /etc/bash_completion.d/openshift-install
+[root@demo ~]# source /etc/bash_completion.d/openshift
+[root@demo ~]# source /etc/bash_completion.d/openshift-install
