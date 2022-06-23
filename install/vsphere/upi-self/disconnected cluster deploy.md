@@ -241,7 +241,7 @@ curl -u openshift:redhat https://registry.steve-ml.net:5000/v2/_catalog
 ```
 3.3 That is one of the credentials you need. The other is the OpenShift pull secret that you got from Red Hat. Add that to a file called $HOME/ocp_pullsecret.json.  
 
-3.4 You can only use one pull secret when mirroring the images to your local container registry as well as when you install OpenShift, so you need to merge the pull secrets you created in the previous two steps into a single json file named merged_pullsecret.json. Remember that you created your pullsecret_config.json in step 3.4.  
+3.4 You can only use one pull secret when mirroring the images to your local container registry as well as when you install OpenShift, so you need to merge the pull secrets you created in the previous two steps into a single json file named merged_pullsecret.json. Remember that you created your pullsecret_config.json in step 3.1.  
 ```  
 jq -c --argjson var "$(jq .auths $HOME/pullsecret_config.json)" '.auths += $var' $HOME/ocp_pullsecret.json > $HOME/merged_pullsecret.json
 
