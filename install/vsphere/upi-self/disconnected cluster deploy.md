@@ -737,8 +737,7 @@ system:serviceaccount:openshift-monitoring:cluster-monitoring-operator  Approved
 
 3. install complete 모니터링  
 ```  
-openshift-install wait-for install-complete --dir config --log-level debu
-g
+openshift-install wait-for install-complete --dir config --log-level debug
 ```  
 ```  
 INFO Install complete!
@@ -806,6 +805,12 @@ oc label node  infra0.ocp4.steve-ml.net node-role.kubernetes.io/worker-
 ```  
 
 
+#### Test 환경 internal registry 설정
+```  
+oc patch configs.imageregistry.operator.openshift.io cluster --type merge --patch '{"spec":{"storage":{"emptyDir":{}}}}'  
+
+oc patch configs.imageregistry.operator.openshift.io cluster --type merge --patch '{"spec":{"managementState":"Managed"}}'
+```  
 
 
 
