@@ -26,6 +26,7 @@ check_exit_code $? "Cannot create Bootstrap VM"
 # Chnage VM Spec and Environment Varialbe
 echo 'Change VM Spec and Env Variable'
 #govc vm.upgrade -version=15 -vm "${VM_NAME}"
+# govc vm.network.change -vm $VM_NAME -net "${NETWORK}" ethernet-0
 govc vm.change -vm "${VM_NAME}" -c=2 -m=8192
 govc vm.disk.change -vm "${VM_NAME}" -size 120G
 govc vm.change -vm "${VM_NAME}" -e "disk.EnableUUID=TRUE"
